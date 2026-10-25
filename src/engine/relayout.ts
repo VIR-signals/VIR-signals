@@ -58,7 +58,8 @@ export type RelayoutOutcome =
 export function relayoutAfterUpdate(
   located: Located,
   storageDir: string,
-  owner: string
+  owner: string,
+  extensionDir?: string
 ): RelayoutOutcome {
   const applied = loadState(storageDir).applied;
   if (!applied) {
@@ -98,7 +99,7 @@ export function relayoutAfterUpdate(
     saveState(storageDir, st);
     return { ok: true, report: { newFiles, vanishedFiles, appliedAgain: false, warnings } };
   }
-  const r = applyPack(located, found.result.pack, storageDir, owner);
+  const r = applyPack(located, found.result.pack, storageDir, owner, extensionDir);
   if (!r.ok) {
     return { ok: false, error: r.error };
   }
