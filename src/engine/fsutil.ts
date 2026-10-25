@@ -3,7 +3,6 @@
 // dot keys, never sentences.
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import { TMP_SUFFIX } from './paths';
 
 export function sha256Buffer(buf: Buffer): string {
