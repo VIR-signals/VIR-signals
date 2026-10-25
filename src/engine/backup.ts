@@ -6,6 +6,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { msg, VirMessage } from './msg';
 import { BACKUP_DIR_NAME, BACKUP_MANIFEST_NAME, MARKER_NAME, SNAPSHOT_DIR_NAME, SNAPSHOT_MANIFEST_NAME } from './paths';
+import { acquireLock, releaseLock } from './lock';
 import { Fingerprint, Located } from './locate';
 import { atomicWriteFile, copyFileVerified, ensureDir, listDirs, listFiles, readJsonSync, sha256File } from './fsutil';
 
@@ -141,6 +142,36 @@ export function verifyBackup(dir: string): VerifyBackupResult {
 
 export function deleteBackup(storageDir: string): void {
   fs.rmSync(path.join(storageDir, BACKUP_DIR_NAME), { recursive: true, force: true });
+}
+
+// Activation time backup: make sure the official baseline exists in storage
+// before anything else happens. Replacements still verify and enforce the
+// backup on their own, this only front loads the safety line.
+export type EnsureBackupResult =
+  | { ok: true; created: boolean }
+  | { ok: false; error: VirMessage };
+
+export function ensureBackup(
+  located: Located,
+  storageDir: string,
+  owner: string
+): EnsureBackupResult {
+  if (verifyBackup(backupDirFor(storageDir, located.fingerprint)).ok) {
+    return { ok: true, created: false };
+  }
+  const lock = acquireLock(storageDir, owner);
+  if (!lock.ok) {
+    return { ok: false, error: lock.error };
+  }
+  try {
+    const tb = takeBackup(located, storageDir);
+    if (!tb.ok) {
+      return { ok: false, error: tb.error };
+    }
+    return { ok: true, created: true };
+  } finally {
+    releaseLock(storageDir, owner);
+  }
 }
 
 // Uninstall snapshot: a copy of the official baseline that lives inside the
