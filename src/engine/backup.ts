@@ -5,7 +5,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { msg, VirMessage } from './msg';
-import { BACKUP_DIR_NAME, BACKUP_MANIFEST_NAME, MARKER_NAME } from './paths';
+import { BACKUP_DIR_NAME, BACKUP_MANIFEST_NAME, MARKER_NAME, SNAPSHOT_DIR_NAME, SNAPSHOT_MANIFEST_NAME } from './paths';
 import { Fingerprint, Located } from './locate';
 import { atomicWriteFile, copyFileVerified, ensureDir, listDirs, listFiles, readJsonSync, sha256File } from './fsutil';
 
@@ -141,4 +141,57 @@ export function verifyBackup(dir: string): VerifyBackupResult {
 
 export function deleteBackup(storageDir: string): void {
   fs.rmSync(path.join(storageDir, BACKUP_DIR_NAME), { recursive: true, force: true });
+}
+
+// Uninstall snapshot: a copy of the official baseline that lives inside the
+// extension folder, so the uninstall hook survives even after globalStorage
+// is gone.
+export interface SnapshotMeta {
+  schemaVersion: 1;
+  mediaDir: string;
+  installRoot: string;
+  fingerprint: Fingerprint;
+  createdAt: string;
+  files: Record<string, string>;
+}
+
+export function snapshotDirFor(extensionDir: string): string {
+  return path.join(extensionDir, 'out', SNAPSHOT_DIR_NAME);
+}
+
+export function writeUninstallSnapshot(extensionDir: string, backupDir: string): void {
+  const manifest = loadBackupManifest(backupDir);
+  const dir = snapshotDirFor(extensionDir);
+  fs.rmSync(dir, { recursive: true, force: true });
+  ensureDir(dir);
+  for (const name of Object.keys(manifest.files)) {
+    copyFileVerified(path.join(backupDir, name), path.join(dir, name));
+  }
+  const meta: SnapshotMeta = {
+    schemaVersion: 1,
+    mediaDir: manifest.mediaDir,
+    installRoot: manifest.installRoot,
+    fingerprint: manifest.fingerprint,
+    createdAt: new Date().toISOString(),
+    files: manifest.files,
+  };
+  atomicWriteFile(path.join(dir, SNAPSHOT_MANIFEST_NAME), JSON.stringify(meta, null, 2));
+}
+
+export type SnapshotState = 'ok' | 'missing' | 'bad';
+
+export function snapshotState(extensionDir: string): SnapshotState {
+  const metaPath = path.join(snapshotDirFor(extensionDir), SNAPSHOT_MANIFEST_NAME);
+  if (!fs.existsSync(metaPath)) {
+    return 'missing';
+  }
+  try {
+    const meta = readJsonSync<SnapshotMeta>(metaPath);
+    if (meta.schemaVersion !== 1 || Object.keys(meta.files ?? {}).length === 0) {
+      return 'bad';
+    }
+  } catch {
+    return 'bad';
+  }
+  return 'ok';
 }
