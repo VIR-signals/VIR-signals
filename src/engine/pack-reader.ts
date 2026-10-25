@@ -74,7 +74,11 @@ function str(v: unknown): string {
   return typeof v === 'string' ? v : '';
 }
 
-function checkPathSafety(rel: string): VirMessage | undefined {
+// Pack side of the shared path contract: forward slashes only, no parent
+// escape, no drive letters, no absolute roots, no empty segments. Exported
+// because the market chapters validate untrusted entry fields against the
+// very same rule before any download starts.
+export function checkPathSafety(rel: string): VirMessage | undefined {
   if (rel.length === 0) {
     return msg('pack.pathEmpty');
   }

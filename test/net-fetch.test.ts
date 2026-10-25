@@ -194,7 +194,7 @@ test('fetchFiles surfaces per file failures without touching others', async () =
 test('hop urls build in direct, cdn, mirror order', () => {
   const urls = buildHopUrls({
     repo: 'someone/demo-pack',
-    commit: '0123456789abcdef0123456789abcdef01234567',
+    ref: '0123456789abcdef0123456789abcdef01234567',
     filePath: 'pack/sounds/a.wav',
     mirrorPrefix: 'https://gh-proxy.example/',
   });
@@ -207,7 +207,7 @@ test('hop urls build in direct, cdn, mirror order', () => {
 test('empty mirror prefix yields two hops', () => {
   const urls = buildHopUrls({
     repo: 'a/b',
-    commit: '0123456789abcdef0123456789abcdef01234567',
+    ref: '0123456789abcdef0123456789abcdef01234567',
     filePath: 'pack/manifest.json',
     mirrorPrefix: '',
   });

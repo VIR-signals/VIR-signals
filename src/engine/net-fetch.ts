@@ -94,12 +94,9 @@ async function runHop(
   }
 }
 
-export interface FetchFileOutcome {
-  ok: boolean;
-  data?: Buffer;
-  url?: string;
-  attempts: HopAttempt[];
-}
+export type FetchFileOutcome =
+  | { ok: true; data: Buffer; url: string; attempts: HopAttempt[] }
+  | { ok: false; attempts: HopAttempt[] };
 
 // One file through the hop chain. When the whole chain fails it is retried
 // exactly once, per the transport contract; every failed attempt is kept so
@@ -204,19 +201,20 @@ export function encodePath(rel: string): string {
 
 export interface HopUrlsInput {
   repo: string;
-  commit: string;
+  /** Immutable commit for pack files, or the branch name for the index. */
+  ref: string;
   filePath: string;
   mirrorPrefix: string;
 }
 
-// The three-hop chain for one file inside a pack repository at a commit.
+// The three-hop chain for one file inside a pack repository at a ref.
 export function buildHopUrls(input: HopUrlsInput): string[] {
   const [owner, name] = input.repo.split('/');
   const encRepo = encodeURIComponent(owner) + '/' + encodeURIComponent(name);
   const encPath = encodePath(input.filePath);
   const direct =
-    'https://raw.githubusercontent.com/' + encRepo + '/' + input.commit + '/' + encPath;
-  const cdn = 'https://cdn.jsdelivr.net/gh/' + encRepo + '@' + input.commit + '/' + encPath;
+    'https://raw.githubusercontent.com/' + encRepo + '/' + input.ref + '/' + encPath;
+  const cdn = 'https://cdn.jsdelivr.net/gh/' + encRepo + '@' + input.ref + '/' + encPath;
   const hops = [direct, cdn];
   if (input.mirrorPrefix !== '') {
     hops.push(input.mirrorPrefix + direct);
