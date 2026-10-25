@@ -18,21 +18,12 @@ export interface AppliedState {
   appliedAt: string;
 }
 
-export interface BackupState {
-  fingerprint: Fingerprint;
-  versionDir: string;
-  dir: string;
-  fileCount: number;
-  createdAt: string;
-}
-
 export interface VirState {
   schemaVersion: 1;
   firstRunDone: boolean;
   firstRunChoice: string;
   activePackId: string;
   applied: AppliedState | null;
-  backup: BackupState | null;
   signalToggles: Record<string, unknown>;
 }
 
@@ -47,7 +38,6 @@ export function freshState(): VirState {
     firstRunChoice: '',
     activePackId: '',
     applied: null,
-    backup: null,
     signalToggles: {},
   };
 }
