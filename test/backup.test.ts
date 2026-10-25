@@ -6,11 +6,13 @@ import { locate } from '../src/engine/locate';
 import {
   backupDirFor,
   deleteBackup,
+  ensureBackup,
   readMarker,
   takeBackup,
   verifyBackup,
   writeMarker,
 } from '../src/engine/backup';
+import { acquireLock } from '../src/engine/lock';
 import { BACKUP_MANIFEST_NAME, MARKER_NAME } from '../src/engine/paths';
 import { sha256File } from '../src/engine/fsutil';
 import { buildInstallTree, makeTempRoot } from './helpers';
@@ -141,6 +143,56 @@ test('delete backup removes the whole backup area', () => {
     assert.equal(fs.existsSync(path.join(dir, BACKUP_MANIFEST_NAME)), true);
     deleteBackup(storage);
     assert.equal(fs.existsSync(path.join(storage, 'backup')), false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('ensure backup creates once then reports existing', () => {
+  const root = makeTempRoot();
+  try {
+    const tree = buildInstallTree(root);
+    const located = locate(tree.appRoot, '');
+    assert.ok(located.ok);
+    const storage = path.join(root, 'store');
+    const first = ensureBackup(located.located, storage, 'w1');
+    assert.ok(first.ok);
+    assert.ok(first.ok && first.created === true);
+    const second = ensureBackup(located.located, storage, 'w1');
+    assert.ok(second.ok);
+    assert.ok(second.ok && second.created === false);
+    assert.ok(verifyBackup(backupDirFor(storage, located.located.fingerprint)).ok);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('ensure backup reports busy when another window holds the lock', () => {
+  const root = makeTempRoot();
+  try {
+    const tree = buildInstallTree(root);
+    const located = locate(tree.appRoot, '');
+    assert.ok(located.ok);
+    const storage = path.join(root, 'store');
+    assert.ok(acquireLock(storage, 'other').ok);
+    const r = ensureBackup(located.located, storage, 'w1');
+    assert.equal(r.ok, false);
+    assert.ok(!r.ok && r.error.key === 'lock.busy');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('ensure backup refuses a marked site honestly', () => {
+  const root = makeTempRoot();
+  try {
+    const tree = buildInstallTree(root);
+    writeMarker(tree.mediaDir, { packId: 'p', at: Date.now(), version: '1.143.1' });
+    const located = locate(tree.appRoot, '');
+    assert.ok(located.ok);
+    const r = ensureBackup(located.located, path.join(root, 'store'), 'w1');
+    assert.equal(r.ok, false);
+    assert.ok(!r.ok && r.error.key === 'backup.blocked');
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
