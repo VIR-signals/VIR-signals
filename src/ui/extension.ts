@@ -7,6 +7,7 @@ import { staleVerdict } from './localize';
 import { VirUiContext } from './extension-context';
 import { registerCommands } from './commands';
 import { locate } from '../engine/locate';
+import { checkPlatform, defaultProbes } from '../engine/platform-gate';
 import { readPendingTx } from '../engine/replace';
 import { checkVersionDrift, relayoutAfterUpdate } from '../engine/relayout';
 import { loadState, saveState } from '../engine/ledger';
@@ -81,7 +82,20 @@ async function activationPass(ctx: VirUiContext): Promise<void> {
   const notes: string[] = [];
   let pendingTx = false;
   const located = locate(vscode.env.appRoot, manualInstallPath());
+  // The platform gate runs before anything touches the editor directory:
+  // unsupported positions get the explicit reason and zero writes.
+  let writable = false;
   if (located.ok) {
+    const gate = checkPlatform(located.located, defaultProbes());
+    if (gate.ok) {
+      writable = true;
+    } else {
+      notes.push(render(gate.error));
+    }
+  } else {
+    notes.push(render(located.error));
+  }
+  if (located.ok && writable) {
     const ensured = ensureBackup(located.located, ctx.storageDir, ctx.owner);
     if (!ensured.ok && ensured.error.key !== 'lock.busy') {
       notes.push(render(ensured.error));
@@ -116,8 +130,6 @@ async function activationPass(ctx: VirUiContext): Promise<void> {
         notes.push(String((e as Error).message));
       }
     }
-  } else {
-    notes.push(render(located.error));
   }
   const seedNote = seedDemoPack(ctx);
   if (seedNote) {

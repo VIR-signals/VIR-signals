@@ -158,5 +158,11 @@
   "ui.market.previewFetching": "正在取一条音频用于试听…",
   "ui.market.coverage": "覆盖 {0}/{1} 槽位 · 影响 {2} 事件",
   "ui.market.coverUnknown": "覆盖面未知",
-  "ui.market.localDetail": "本地包 · {0}"
+  "ui.market.localDetail": "本地包 · {0}",
+  "platform.systemInstall": "此安装位写入需要管理员权限，v1 暂不支持系统级安装。请使用用户级安装（VS Code 默认安装方式），详见扩展 README。",
+  "platform.macosApp": "暂不支持 macOS：修改应用包会破坏代码签名。重签名方案真机验证后开放，手动替换做法见扩展 README。",
+  "platform.readOnlyMount": "{0} 安装在只读文件系统上，无法替换官方音效，提权也救不了。请改装 deb/rpm/tarball 版，详见扩展 README。",
+  "platform.probeIo": "无法写入音效目录（{0}），未做任何改动。",
+  "apply.fileMissing": "此编辑器版本未携带槽位文件 {0}，该槽位保留官方原声。",
+  "ui.status.missingFiles": "本编辑器版本未携带、槽位保留官方原声的文件：{0}"
 }

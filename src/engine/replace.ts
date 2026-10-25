@@ -80,12 +80,19 @@ function stagingDirFor(storageDir: string): string {
 }
 
 // Full recompute: the final state of every slot file, pack declared or
-// official baseline.
+// official baseline. Files the editor variant does not actually ship are
+// skipped: pack declared ones surface as disabled entries, baseline ones
+// simply have nothing to reset.
 function computePlan(
   pack: PackInfo,
-  backupDir: string
-): Array<{ name: string; source: 'pack' | 'baseline'; sourcePath: string }> {
-  const out: Array<{ name: string; source: 'pack' | 'baseline'; sourcePath: string }> = [];
+  backupDir: string,
+  presentNames: ReadonlySet<string>
+): {
+  plan: Array<{ name: string; source: 'pack' | 'baseline'; sourcePath: string }>;
+  skippedPackFiles: string[];
+} {
+  const plan: Array<{ name: string; source: 'pack' | 'baseline'; sourcePath: string }> = [];
+  const skippedPackFiles: string[] = [];
   for (const entry of SLOTS) {
     for (const file of entry.files) {
       let audio: SlotAudio | undefined;
@@ -96,13 +103,17 @@ function computePlan(
         audio = pack.slots[entry.slot];
       }
       if (audio) {
-        out.push({ name: file, source: 'pack', sourcePath: audio.absPath });
-      } else {
-        out.push({ name: file, source: 'baseline', sourcePath: path.join(backupDir, file) });
+        if (presentNames.has(file)) {
+          plan.push({ name: file, source: 'pack', sourcePath: audio.absPath });
+        } else {
+          skippedPackFiles.push(file);
+        }
+      } else if (presentNames.has(file)) {
+        plan.push({ name: file, source: 'baseline', sourcePath: path.join(backupDir, file) });
       }
     }
   }
-  return out;
+  return { plan, skippedPackFiles };
 }
 
 export function readPendingTx(mediaDir: string): PendingTx | undefined {
@@ -193,7 +204,11 @@ export function applyPack(
       }
     }
 
-    const plan = computePlan(pack, backupDir);
+    const { plan, skippedPackFiles } = computePlan(
+      pack,
+      backupDir,
+      new Set(located.presentFiles)
+    );
     const stagingDir = stagingDirFor(storageDir);
     const stageDir = path.join(stagingDir, 'stage');
     const snapDir = path.join(stagingDir, 'before');
@@ -273,13 +288,17 @@ export function applyPack(
     for (const key of Object.keys(pack.slots)) {
       warnings.push(...pack.slots[key].warnings);
     }
+    const disabled: Record<string, VirMessage> = { ...pack.disabled };
+    for (const file of skippedPackFiles) {
+      disabled[file] = msg('apply.fileMissing', file);
+    }
     return {
       ok: true,
       report: {
         replaced: targets.filter((t) => t.source === 'pack').map((t) => t.name),
         baseline: targets.filter((t) => t.source === 'baseline').map((t) => t.name),
         warnings,
-        disabled: pack.disabled,
+        disabled,
       },
     };
   } finally {

@@ -72,14 +72,26 @@ test('no resolvable version dir is a loud error', () => {
   }
 });
 
-test('incomplete media set is a loud error', () => {
+// Chapter 5 contract: a variant shipping fewer files still locates; the
+// absent files are reported as missing so their slots keep official sound.
+// A directory with none of the official files remains a loud failure.
+test('incomplete media set locates and reports the missing files', () => {
   const root = makeTempRoot();
   try {
     const tree = buildInstallTree(root);
     fs.rmSync(path.join(tree.mediaDir, 'save.mp3'));
     const r = locate(tree.appRoot, '');
-    assert.equal(r.ok, false);
-    assert.ok(!r.ok && r.error.key === 'locate.mediaMissing');
+    assert.equal(r.ok, true);
+    assert.ok(r.ok);
+    assert.ok(r.located.missingFiles.includes('save.mp3'));
+    assert.ok(!r.located.presentFiles.includes('save.mp3'));
+    assert.ok(r.located.presentFiles.length > 0);
+    for (const f of fs.readdirSync(tree.mediaDir)) {
+      fs.rmSync(path.join(tree.mediaDir, f));
+    }
+    const empty = locate(tree.appRoot, '');
+    assert.equal(empty.ok, false);
+    assert.ok(!empty.ok && empty.error.key === 'locate.mediaMissing');
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

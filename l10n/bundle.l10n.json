@@ -158,5 +158,11 @@
   "ui.market.previewFetching": "Fetching one sound for preview...",
   "ui.market.coverage": "{0}/{1} slots, {2} events",
   "ui.market.coverUnknown": "coverage unknown",
-  "ui.market.localDetail": "local pack, {0}"
+  "ui.market.localDetail": "local pack, {0}",
+  "platform.systemInstall": "This editor install needs administrator rights to write, which v1 does not support. Use the user level install (the default VS Code installer); see the extension README.",
+  "platform.macosApp": "macOS is not supported yet: editing the app bundle breaks its code signature. Support opens after a re-signing approach is verified on real hardware; see the extension README for the manual swap.",
+  "platform.readOnlyMount": "{0} installs live on a read only filesystem; the official sounds cannot be replaced there, and elevation would not help. Install the deb, rpm, or tarball build instead; see the extension README.",
+  "platform.probeIo": "Cannot write into the sound directory ({0}); nothing was changed.",
+  "apply.fileMissing": "Slot file {0} is not shipped by this editor build; that slot keeps the official sound.",
+  "ui.status.missingFiles": "Not shipped by this editor build, those slots keep official sounds: {0}"
 }

@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { render, t } from './render';
 import { VirUiContext } from './extension-context';
 import { locate, Located } from '../engine/locate';
+import { checkPlatform, defaultProbes } from '../engine/platform-gate';
 import { scanPacks, findPackById, PackInfo } from '../engine/pack-reader';
 import { applyPack, readPendingTx } from '../engine/replace';
 import { restoreOfficial } from '../engine/restore';
@@ -45,6 +46,11 @@ async function locateOrShow(): Promise<Located | undefined> {
   const r = locate(vscode.env.appRoot, manualInstallPath());
   if (!r.ok) {
     await vscode.window.showErrorMessage(render(r.error));
+    return undefined;
+  }
+  const gate = checkPlatform(r.located, defaultProbes());
+  if (!gate.ok) {
+    await vscode.window.showErrorMessage(render(gate.error));
     return undefined;
   }
   return r.located;
@@ -294,6 +300,9 @@ async function cmdStatus(ctx: VirUiContext): Promise<void> {
     const drift = checkVersionDrift(locatedOk, ctx.storageDir);
     if (drift.reason) {
       lines.push(render(drift.reason));
+    }
+    if (locatedOk.missingFiles.length > 0) {
+      lines.push(t('ui.status.missingFiles', locatedOk.missingFiles.join(', ')));
     }
   } else if (!located.ok) {
     lines.push(render(located.error));

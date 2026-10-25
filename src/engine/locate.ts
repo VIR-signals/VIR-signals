@@ -19,6 +19,10 @@ export interface Located {
   readonly appRoot: string;
   readonly mediaDir: string;
   readonly fingerprint: Fingerprint;
+  /** Official files that actually exist here; variants may lack some. */
+  readonly presentFiles: ReadonlyArray<string>;
+  /** Official files absent here; their slots keep official behavior. */
+  readonly missingFiles: ReadonlyArray<string>;
 }
 
 export type LocateResult =
@@ -110,13 +114,31 @@ export function locate(appRoot: string, manualInstallPath: string): LocateResult
   if (!fs.existsSync(mediaDir) || !fs.statSync(mediaDir).isDirectory()) {
     return { ok: false, error: msg('locate.mediaMissing', mediaDir) };
   }
+  // Variants of the editor may ship fewer sound files. The replacement
+  // surface is whatever actually exists; nothing is guessed or fabricated,
+  // and the missing files are reported as non covered.
+  const presentFiles: string[] = [];
+  const missingFiles: string[] = [];
   for (const f of OFFICIAL_FILES) {
-    if (!fs.existsSync(path.join(mediaDir, f))) {
-      return { ok: false, error: msg('locate.mediaMissing', mediaDir) };
+    if (fs.existsSync(path.join(mediaDir, f))) {
+      presentFiles.push(f);
+    } else {
+      missingFiles.push(f);
     }
+  }
+  if (presentFiles.length === 0) {
+    return { ok: false, error: msg('locate.mediaMissing', mediaDir) };
   }
   return {
     ok: true,
-    located: { installRoot, versionDir, appRoot: targetAppRoot, mediaDir, fingerprint: fp },
+    located: {
+      installRoot,
+      versionDir,
+      appRoot: targetAppRoot,
+      mediaDir,
+      fingerprint: fp,
+      presentFiles,
+      missingFiles,
+    },
   };
 }
