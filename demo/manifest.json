@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "id": "demo",
+  "name": "Demo save+err",
+  "version": "1.0.0",
+  "author": "VIR Signals",
+  "license": "CC0-1.0",
+  "sourceLicense": "third-party-cc0",
+  "slots": {
+    "error": "sounds/error_004.wav",
+    "save": "sounds/confirmation_002.wav"
+  }
+}

@@ -10,7 +10,8 @@ test('missing state file yields the fresh default', () => {
   try {
     const s = loadState(root);
     assert.deepEqual(s, freshState());
-    assert.equal(s.firstRunDone, false);
+    assert.equal(s.stageOneDone, false);
+    assert.equal(s.stageTwoDone, false);
     assert.equal(s.applied, null);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
@@ -21,7 +22,8 @@ test('save then load round trips the whole state', () => {
   const root = makeTempRoot();
   try {
     const s = freshState();
-    s.firstRunDone = true;
+    s.stageOneDone = true;
+    s.stageOneOwner = 'session-a';
     s.activePackId = 'demo';
     s.signalToggles['accessibility.signals.save'] = { sound: 'auto' };
     s.applied = {

@@ -82,9 +82,7 @@
   "ui.worksheet.colHeard": "heard",
   "ui.statusbar.tooltip": "VIR Signals: pick the voice pack",
   "ui.env.notSupported": "This window runs where VIR Signals cannot reach a local install (web or remote host). It manages local desktop editors only.",
-  "ui.firstRun.message": "Sound signals only play when their settings are on. Switch every signal setting on at once, or open the settings and pick?",
-  "ui.firstRun.enableAll": "Enable all covered signals",
-  "ui.firstRun.openSettings": "Open signal settings",
+  "ui.firstRun.message": "Pick a voice pack first; sounds change only after a pack is applied.",
   "ui.enableAll.done": "{0} signal settings switched on.",
   "ui.relayout.newFiles": "new files",
   "ui.relayout.vanishedFiles": "vanished files",
@@ -98,5 +96,9 @@
   "ui.apply.switchAll": "Enable All",
   "ui.apply.switchPack": "Match the Pack",
   "ui.switchMode.doneAll": "Enabled all {0} signal settings.",
-  "ui.switchMode.donePack": "Matched the pack: {0} on, {1} off."
+  "ui.switchMode.donePack": "Matched the pack: {0} on, {1} off.",
+  "ui.firstRun.pickPack": "Select Voice Pack",
+  "ui.firstRun.openPacksFolder": "Open Packs Folder",
+  "ui.stageOne.message": "The official sounds are backed up. Reload the window once so the interface speaks your language.",
+  "ui.demoSeed.missing": "The built-in demo pack is missing from the extension folder, so it could not be placed into the packs folder."
 }

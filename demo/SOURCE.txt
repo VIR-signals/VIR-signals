@@ -1,0 +1,18 @@
+这个 demo 包里的 2 条声音来自 Kenney Interface Sounds：
+
+  来源：https://kenney.nl/assets/interface-sounds
+  作者：Kenney Vleugels (Kenney.nl)
+  许可：Creative Commons Zero (CC0 1.0) —— 可用于任何用途，署名不强制
+  许可全文：https://creativecommons.org/publicdomain/zero/1.0/
+
+  使用条目（原文件名）：
+    sounds/error_004.wav        ← error_004.ogg
+    sounds/confirmation_002.wav ← confirmation_002.ogg
+
+  WAV 版本取自 GitHub 仓库 comeonzhj/ppt-master 的格式统一快照
+  （Ogg Vorbis 转码为 PCM 16-bit 44.1 kHz WAV，未做裁剪或响度处理）。
+  Kenney 的资产页与许可声明：CC0，署名"appreciated but not mandatory"。
+
+demo 包刻意只映射 error 与 save 两个槽位：没映射的槽位保持官方原声。
+把整个 demo 文件夹拷进扩展的语音包目录（命令「VIR: 打开语音包文件夹」）
+就能用；复制它、改名字换音频，就是你自己的语音包。

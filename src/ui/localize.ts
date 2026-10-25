@@ -48,3 +48,14 @@ export function lookup(bundle: Bundle, key: string, args: ReadonlyArray<string |
   const raw = bundle[key];
   return raw === undefined ? key : formatPlaceholders(raw, args);
 }
+
+// Staleness verdict for the platform reload hint. The platform returning
+// the raw key means no translation exists for it at all: a reload cannot
+// conjure one, so that state is never "stale" — treating it as stale is
+// what once looped the reload demand forever.
+export function staleVerdict(platformValue: string, ours: string, key: string): boolean {
+  if (platformValue === key) {
+    return false;
+  }
+  return platformValue !== ours;
+}

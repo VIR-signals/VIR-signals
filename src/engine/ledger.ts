@@ -20,8 +20,9 @@ export interface AppliedState {
 
 export interface VirState {
   schemaVersion: 1;
-  firstRunDone: boolean;
-  firstRunChoice: string;
+  stageOneDone: boolean;
+  stageOneOwner: string;
+  stageTwoDone: boolean;
   activePackId: string;
   applied: AppliedState | null;
   signalToggles: Record<string, unknown>;
@@ -34,8 +35,9 @@ export function statePath(storageDir: string): string {
 export function freshState(): VirState {
   return {
     schemaVersion: 1,
-    firstRunDone: false,
-    firstRunChoice: '',
+    stageOneDone: false,
+    stageOneOwner: '',
+    stageTwoDone: false,
     activePackId: '',
     applied: null,
     signalToggles: {},
@@ -47,11 +49,22 @@ export function loadState(storageDir: string): VirState {
   if (!fs.existsSync(p)) {
     return freshState();
   }
-  const raw = JSON.parse(fs.readFileSync(p, 'utf8')) as VirState;
+  const raw = JSON.parse(fs.readFileSync(p, 'utf8')) as Partial<VirState>;
   if (raw.schemaVersion !== 1) {
     throw new Error('state.schemaUnknown');
   }
-  return raw;
+  // Fields from earlier builds are dropped, never interpreted: the known
+  // fields are the whole state.
+  return {
+    schemaVersion: 1,
+    stageOneDone: raw.stageOneDone === true,
+    stageOneOwner: typeof raw.stageOneOwner === 'string' ? raw.stageOneOwner : '',
+    stageTwoDone: raw.stageTwoDone === true,
+    activePackId: typeof raw.activePackId === 'string' ? raw.activePackId : '',
+    applied: raw.applied ?? null,
+    signalToggles:
+      raw.signalToggles && typeof raw.signalToggles === 'object' ? raw.signalToggles : {},
+  };
 }
 
 export function saveState(storageDir: string, state: VirState): void {

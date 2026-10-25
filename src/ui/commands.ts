@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import { render, t } from './render';
 import { VirUiContext } from './extension-context';
 import { locate, Located } from '../engine/locate';
-import { scanPacks, findPackById, PackInfo, ScannedPack } from '../engine/pack-reader';
+import { scanPacks, findPackById, PackInfo } from '../engine/pack-reader';
 import { applyPack, readPendingTx } from '../engine/replace';
 import { restoreOfficial } from '../engine/restore';
 import { checkVersionDrift } from '../engine/relayout';
@@ -12,6 +12,8 @@ import { backupDirFor, deleteBackup, verifyBackup } from '../engine/backup';
 import { loadState, saveState } from '../engine/ledger';
 import { packsDirFor } from '../engine/paths';
 import { ensureDir } from '../engine/fsutil';
+import { seedDemoPack } from './demo-seed';
+import { localPackListing, PackListing } from './pack-source';
 import { SLOTS, affectedEventsForSlots, fileOwnerSlot } from '../engine/slot-table';
 import { findCalibrationPack, worksheetRows } from '../engine/calibrate';
 import { coveredSlotsOfPack, effectiveSound, enableCoveredSignals, applySignalSwitchMode, allSignalSettingKeys, restoreSignalToggles } from './settings';
@@ -47,17 +49,8 @@ async function locateOrShow(): Promise<Located | undefined> {
   return r.located;
 }
 
-function splitScan(scanned: ScannedPack[]): { good: PackInfo[]; badLines: string[] } {
-  const good: PackInfo[] = [];
-  const badLines: string[] = [];
-  for (const s of scanned) {
-    if (s.result.ok) {
-      good.push(s.result.pack);
-    } else {
-      badLines.push(`${s.folderName}: ${render(s.result.error)}`);
-    }
-  }
-  return { good, badLines };
+function badLinesOf(listing: PackListing): string[] {
+  return listing.bad.map((b) => `${b.folderName}: ${render(b.error)}`);
 }
 
 function switchWord(state: string): string {
@@ -73,17 +66,23 @@ async function openMarkdown(title: string, lines: string[]): Promise<void> {
 }
 
 async function cmdOpenPacksFolder(ctx: VirUiContext): Promise<void> {
+  const seedNote = seedDemoPack(ctx);
   const dir = packsDirFor(ctx.storageDir);
   ensureDir(dir);
   const opened = await vscode.env.openExternal(vscode.Uri.file(dir));
   if (!opened) {
     await vscode.window.showErrorMessage(t('ui.packsFolder.openFailed'));
+    return;
+  }
+  if (seedNote) {
+    await vscode.window.showWarningMessage(render(seedNote));
   }
 }
 
 async function cmdRescan(ctx: VirUiContext): Promise<void> {
-  const { good, badLines } = splitScan(scanPacks(packsDirFor(ctx.storageDir)));
-  const head = t('ui.rescan.result', good.length, badLines.length);
+  const listing = localPackListing(ctx);
+  const badLines = badLinesOf(listing);
+  const head = t('ui.rescan.result', listing.good.length, badLines.length);
   if (badLines.length === 0) {
     await vscode.window.showInformationMessage(head);
     return;
@@ -94,7 +93,7 @@ async function cmdRescan(ctx: VirUiContext): Promise<void> {
 type PackChoice = { pack: PackInfo } | { none: true };
 
 async function pickPackChoice(ctx: VirUiContext): Promise<PackChoice | undefined> {
-  const packs = splitScan(scanPacks(packsDirFor(ctx.storageDir))).good;
+  const packs = localPackListing(ctx).good;
   const items: Array<{
     label: string;
     description?: string;
