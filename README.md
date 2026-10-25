@@ -14,7 +14,7 @@ A pack is a folder with a `manifest.json` and audio files (WAV or MP3). The `slo
 
 ## Signal switches
 
-Replacing files does not turn signals on. The editor plays a signal only when its accessibility signal setting is on. On first run the extension offers two buttons: switch on every signal setting covered by the active pack, or open the signal settings page. **VIR: Restore Signal Toggles** puts those settings back the way they were.
+Replacing files does not turn signals on. The editor plays a signal only when its accessibility signal setting is on. On first run the extension offers two buttons: switch every signal setting on, or open the signal settings page. **VIR: Enable All Signals** switches all signal settings on at any time — a pure editor settings operation, the active pack is irrelevant — and **VIR: Restore Signal Toggles** puts those settings back the way they were. After every successful apply the result notification also offers the two switch modes: enable all (untouched events keep the official sounds) or match the pack (covered settings on, everything else off).
 
 ## Commands
 
@@ -22,10 +22,11 @@ Replacing files does not turn signals on. The editor plays a signal only when it
 |---|---|
 | VIR: Open Voice Packs Folder | Create and open the pack folder. |
 | VIR: Rescan Voice Packs | Rescan the pack folder and report broken packs. |
-| VIR: Select Voice Pack | Pick the active pack, or none. Also reachable from the bell in the status bar. |
-| VIR: Apply Voice Pack | Back up if needed, recompute every slot, replace the files, verify. |
+| VIR: Select Voice Pack | Pick the active pack and apply it right away; picking none restores the official sounds. Also reachable from the bell in the status bar. |
+| VIR: Apply Voice Pack | Back up if needed, recompute every slot, replace the files, verify. Asks for a pack first when none is active. |
 | VIR: Restore Original Sounds | Lay the official files back and verify every hash. |
 | VIR: Open Signal Settings | Jump to the signal section of the settings page. |
+| VIR: Enable All Signals | Switch on all signal settings of the editor. |
 | VIR: Restore Signal Toggles | Put back the signal settings this extension switched on. |
 | VIR: Status | Full report: pack, replacement, backup, slot coverage, switches. |
 | VIR: Delete Backup | Delete the backup itself, after a confirmation. |

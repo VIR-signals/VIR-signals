@@ -60,6 +60,10 @@
         "title": "%vir.cmd.openSignalSettings.title%"
       },
       {
+        "command": "vir.enableAllSignals",
+        "title": "%vir.cmd.enableAllSignals.title%"
+      },
+      {
         "command": "vir.restoreToggles",
         "title": "%vir.cmd.restoreToggles.title%"
       },

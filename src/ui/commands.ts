@@ -14,7 +14,7 @@ import { packsDirFor } from '../engine/paths';
 import { ensureDir } from '../engine/fsutil';
 import { SLOTS, affectedEventsForSlots, fileOwnerSlot } from '../engine/slot-table';
 import { findCalibrationPack, worksheetRows } from '../engine/calibrate';
-import { coveredSlotsOfPack, effectiveSound, restoreSignalToggles } from './settings';
+import { coveredSlotsOfPack, effectiveSound, enableCoveredSignals, applySignalSwitchMode, allSignalSettingKeys, restoreSignalToggles } from './settings';
 
 const SIGNAL_QUERY = 'accessibility.signals';
 const SIGNAL_KEY_PREFIX = 'accessibility.signals.';
@@ -75,8 +75,10 @@ async function openMarkdown(title: string, lines: string[]): Promise<void> {
 async function cmdOpenPacksFolder(ctx: VirUiContext): Promise<void> {
   const dir = packsDirFor(ctx.storageDir);
   ensureDir(dir);
-  await vscode.commands.executeCommand('revealInExplorer', vscode.Uri.file(dir));
-  await vscode.window.showInformationMessage(t('ui.packsFolder.opened', dir));
+  const opened = await vscode.env.openExternal(vscode.Uri.file(dir));
+  if (!opened) {
+    await vscode.window.showErrorMessage(t('ui.packsFolder.openFailed'));
+  }
 }
 
 async function cmdRescan(ctx: VirUiContext): Promise<void> {
@@ -89,9 +91,17 @@ async function cmdRescan(ctx: VirUiContext): Promise<void> {
   await vscode.window.showWarningMessage(`${head}\n${badLines.join('\n')}`);
 }
 
-async function cmdSelectPack(ctx: VirUiContext, statusBar: vscode.StatusBarItem): Promise<void> {
+type PackChoice = { pack: PackInfo } | { none: true };
+
+async function pickPackChoice(ctx: VirUiContext): Promise<PackChoice | undefined> {
   const packs = splitScan(scanPacks(packsDirFor(ctx.storageDir))).good;
-  const items: Array<{ label: string; description?: string; detail?: string; id: string }> = [];
+  const items: Array<{
+    label: string;
+    description?: string;
+    detail?: string;
+    pack?: PackInfo;
+    none?: boolean;
+  }> = [];
   for (const pack of packs) {
     const slots = coveredSlotsOfPack(pack);
     const events = affectedEventsForSlots(slots).length;
@@ -99,37 +109,24 @@ async function cmdSelectPack(ctx: VirUiContext, statusBar: vscode.StatusBarItem)
       label: pack.name,
       description: pack.id,
       detail: `${slots.length}/28 - ${events}`,
-      id: pack.id,
+      pack,
     });
   }
-  items.push({ label: t('ui.select.none'), id: '' });
+  items.push({ label: t('ui.select.none'), none: true });
   const pick = await vscode.window.showQuickPick(items, {
     placeHolder: t('ui.select.placeholder'),
   });
   if (pick === undefined) {
-    return;
+    return undefined;
   }
-  await setActivePack(ctx, pick.id);
-  const note = pick.id === '' ? t('ui.select.cleared') : t('ui.select.applied', pick.id);
-  await vscode.window.showInformationMessage(note);
-  refreshStatusBar(statusBar);
+  return pick.none === true ? { none: true } : { pack: pick.pack as PackInfo };
 }
 
-async function cmdApply(ctx: VirUiContext, statusBar: vscode.StatusBarItem): Promise<void> {
-  if (cfg().get<boolean>('vir.enabled', true) === false) {
-    await vscode.window.showInformationMessage(t('ui.disabled'));
-    return;
-  }
-  const packId = activePackId();
-  if (packId === '') {
-    await vscode.window.showErrorMessage(t('ui.apply.noPack'));
-    return;
-  }
-  const pack = findPackById(packsDirFor(ctx.storageDir), packId);
-  if (!pack) {
-    await vscode.window.showErrorMessage(t('ui.apply.packMissing', packId));
-    return;
-  }
+async function applyFlow(
+  ctx: VirUiContext,
+  statusBar: vscode.StatusBarItem,
+  pack: PackInfo
+): Promise<void> {
   const located = await locateOrShow();
   if (!located) {
     return;
@@ -144,15 +141,25 @@ async function cmdApply(ctx: VirUiContext, statusBar: vscode.StatusBarItem): Pro
     ...r.report.warnings.map(render),
     ...Object.keys(r.report.disabled).map((k) => `${k}: ${render(r.report.disabled[k])}`),
   ];
-  const body = `${t('ui.apply.done', pack.name, r.report.replaced.length, r.report.baseline.length)} ${t('ui.apply.restartHint')}`;
-  if (extra.length > 0) {
-    await vscode.window.showWarningMessage(`${body}\n${extra.join('\n')}`);
-  } else {
-    await vscode.window.showInformationMessage(body);
+  const body = `${t('ui.apply.done', pack.name, r.report.replaced.length, r.report.baseline.length)} ${t('ui.apply.restartHint')}\n${t('ui.apply.switchQuestion')}`;
+  const switchAll = t('ui.apply.switchAll');
+  const switchPack = t('ui.apply.switchPack');
+  const pick =
+    extra.length > 0
+      ? await vscode.window.showWarningMessage(`${body}\n${extra.join('\n')}`, switchAll, switchPack)
+      : await vscode.window.showInformationMessage(body, switchAll, switchPack);
+  if (pick === switchAll || pick === switchPack) {
+    const mode = pick === switchAll ? 'all' : 'pack';
+    const sw = await applySignalSwitchMode(ctx.storageDir, mode, pack);
+    const note =
+      mode === 'all'
+        ? t('ui.switchMode.doneAll', sw.on)
+        : t('ui.switchMode.donePack', sw.on, sw.off);
+    await vscode.window.showInformationMessage(note);
   }
 }
 
-async function cmdRestoreSounds(ctx: VirUiContext, statusBar: vscode.StatusBarItem): Promise<void> {
+async function restoreFlow(ctx: VirUiContext, statusBar: vscode.StatusBarItem): Promise<void> {
   const located = await locateOrShow();
   if (!located) {
     return;
@@ -164,6 +171,68 @@ async function cmdRestoreSounds(ctx: VirUiContext, statusBar: vscode.StatusBarIt
   }
   refreshStatusBar(statusBar);
   await vscode.window.showInformationMessage(t('ui.restore.done', r.fileCount));
+}
+
+async function enactPackChoice(
+  ctx: VirUiContext,
+  statusBar: vscode.StatusBarItem,
+  choice: PackChoice
+): Promise<void> {
+  if ('none' in choice) {
+    await setActivePack(ctx, '');
+    refreshStatusBar(statusBar);
+    if (loadState(ctx.storageDir).applied) {
+      await restoreFlow(ctx, statusBar);
+    }
+    return;
+  }
+  await setActivePack(ctx, choice.pack.id);
+  refreshStatusBar(statusBar);
+  await applyFlow(ctx, statusBar, choice.pack);
+}
+
+async function cmdSelectPack(ctx: VirUiContext, statusBar: vscode.StatusBarItem): Promise<void> {
+  const choice = await pickPackChoice(ctx);
+  if (choice === undefined) {
+    return;
+  }
+  await enactPackChoice(ctx, statusBar, choice);
+}
+
+async function cmdApply(ctx: VirUiContext, statusBar: vscode.StatusBarItem): Promise<void> {
+  if (cfg().get<boolean>('vir.enabled', true) === false) {
+    const openSettings = t('ui.disabled.openSettings');
+    const pick = await vscode.window.showInformationMessage(t('ui.disabled'), openSettings);
+    if (pick === openSettings) {
+      await vscode.commands.executeCommand('workbench.action.openSettings', 'vir.enabled');
+    }
+    return;
+  }
+  const packId = activePackId();
+  const pack = packId === '' ? undefined : findPackById(packsDirFor(ctx.storageDir), packId);
+  if (!pack) {
+    const choice = await pickPackChoice(ctx);
+    if (choice === undefined) {
+      return;
+    }
+    await enactPackChoice(ctx, statusBar, choice);
+    return;
+  }
+  await applyFlow(ctx, statusBar, pack);
+}
+
+async function cmdRestoreSounds(ctx: VirUiContext, statusBar: vscode.StatusBarItem): Promise<void> {
+  await restoreFlow(ctx, statusBar);
+}
+
+export async function runEnableAllSignals(ctx: VirUiContext): Promise<string[]> {
+  const n = await enableCoveredSignals(ctx.storageDir, allSignalSettingKeys());
+  return [t('ui.enableAll.done', n)];
+}
+
+async function cmdEnableAllSignals(ctx: VirUiContext): Promise<void> {
+  const notes = await runEnableAllSignals(ctx);
+  await vscode.window.showInformationMessage(notes.join('\n'));
 }
 
 async function cmdOpenSignalSettings(): Promise<void> {
@@ -262,7 +331,11 @@ async function cmdStatus(ctx: VirUiContext): Promise<void> {
 async function cmdIdentify(ctx: VirUiContext): Promise<void> {
   const calib = findCalibrationPack(scanPacks(packsDirFor(ctx.storageDir)));
   if (!calib) {
-    await vscode.window.showErrorMessage(t('ui.identify.needCalibPack'));
+    const openPacks = t('ui.identify.openPacks');
+    const pick = await vscode.window.showErrorMessage(t('ui.identify.needCalibPack'), openPacks);
+    if (pick === openPacks) {
+      await vscode.commands.executeCommand('vir.openPacksFolder');
+    }
     return;
   }
   const located = await locateOrShow();
@@ -318,6 +391,7 @@ export function registerCommands(ctx: VirUiContext): Array<vscode.Disposable> {
   reg('vir.apply', () => cmdApply(ctx, statusBar));
   reg('vir.restoreSounds', () => cmdRestoreSounds(ctx, statusBar));
   reg('vir.openSignalSettings', () => cmdOpenSignalSettings());
+  reg('vir.enableAllSignals', () => cmdEnableAllSignals(ctx));
   reg('vir.restoreToggles', () => cmdRestoreToggles(ctx));
   reg('vir.status', () => cmdStatus(ctx));
   reg('vir.deleteBackup', () => cmdDeleteBackup(ctx));

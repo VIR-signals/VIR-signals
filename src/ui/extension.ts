@@ -4,25 +4,22 @@
 import * as vscode from 'vscode';
 import { render, t } from './render';
 import { VirUiContext } from './extension-context';
-import { registerCommands } from './commands';
+import { registerCommands, runEnableAllSignals } from './commands';
 import { locate } from '../engine/locate';
 import { readPendingTx } from '../engine/replace';
 import { checkVersionDrift, relayoutAfterUpdate } from '../engine/relayout';
 import { loadState, saveState } from '../engine/ledger';
 import { backupDirFor, ensureBackup, snapshotState, writeUninstallSnapshot } from '../engine/backup';
-import { findPackById } from '../engine/pack-reader';
-import { packsDirFor } from '../engine/paths';
-import { coveredSettingKeysOfPack, enableCoveredSignals } from './settings';
 
 function unsupportedEnv(): boolean {
   return vscode.env.uiKind === vscode.UIKind.Web;
 }
 
-async function firstRunFlow(ctx: VirUiContext): Promise<string[]> {
+async function firstRunFlow(ctx: VirUiContext): Promise<{ notes: string[]; asked: boolean }> {
   const notes: string[] = [];
   const state = loadState(ctx.storageDir);
   if (state.firstRunDone) {
-    return notes;
+    return { notes, asked: false };
   }
   const enableAll = t('ui.firstRun.enableAll');
   const openSettings = t('ui.firstRun.openSettings');
@@ -32,13 +29,7 @@ async function firstRunFlow(ctx: VirUiContext): Promise<string[]> {
     openSettings
   );
   if (pick === enableAll) {
-    const pack = findPackById(packsDirFor(ctx.storageDir), activePackId());
-    if (!pack) {
-      notes.push(t('ui.enableAll.noPack'));
-    } else {
-      const n = await enableCoveredSignals(ctx.storageDir, coveredSettingKeysOfPack(pack));
-      notes.push(t('ui.enableAll.done', n));
-    }
+    notes.push(...(await runEnableAllSignals(ctx)));
     state.firstRunChoice = 'enableAll';
   } else if (pick === openSettings) {
     await vscode.commands.executeCommand('workbench.action.openSettings', 'accessibility.signals');
@@ -48,11 +39,7 @@ async function firstRunFlow(ctx: VirUiContext): Promise<string[]> {
   }
   state.firstRunDone = true;
   saveState(ctx.storageDir, state);
-  return notes;
-}
-
-function activePackId(): string {
-  return vscode.workspace.getConfiguration().get<string>('vir.activePack') ?? '';
+  return { notes, asked: true };
 }
 
 function manualInstallPath(): string {
@@ -61,6 +48,7 @@ function manualInstallPath(): string {
 
 async function activationPass(ctx: VirUiContext): Promise<void> {
   const notes: string[] = [];
+  let pendingTx = false;
   const located = locate(vscode.env.appRoot, manualInstallPath());
   if (located.ok) {
     const ensured = ensureBackup(located.located, ctx.storageDir, ctx.owner);
@@ -68,7 +56,7 @@ async function activationPass(ctx: VirUiContext): Promise<void> {
       notes.push(render(ensured.error));
     }
     if (readPendingTx(located.located.mediaDir) !== undefined) {
-      notes.push(t('ui.status.recoveryPending'));
+      pendingTx = true;
     }
     const drift = checkVersionDrift(located.located, ctx.storageDir);
     if (drift.relayoutNeeded && drift.reason) {
@@ -100,11 +88,28 @@ async function activationPass(ctx: VirUiContext): Promise<void> {
   } else {
     notes.push(render(located.error));
   }
-  const firstRunNotes = await firstRunFlow(ctx);
-  notes.push(...firstRunNotes);
-  await nlsReloadOffer();
-  if (notes.length > 0) {
-    await vscode.window.showWarningMessage(notes.join('\n'));
+  // One activation may raise at most one toast: the reload offer would only
+  // stack on top of the first-run question (both clear after the same single
+  // reload), and warning notes merge with the pending-transaction line so the
+  // restore button rides on a single notification.
+  const firstRun = await firstRunFlow(ctx);
+  notes.push(...firstRun.notes);
+  if (!firstRun.asked) {
+    await nlsReloadOffer();
+  }
+  if (notes.length > 0 || pendingTx) {
+    const lines = [...notes];
+    if (pendingTx) {
+      lines.push(t('ui.recovery.pendingShort'));
+    }
+    const restoreNow = t('ui.recovery.restoreNow');
+    const pick = await vscode.window.showWarningMessage(
+      lines.join('\n'),
+      ...(pendingTx ? [restoreNow] : [])
+    );
+    if (pick === restoreNow) {
+      await vscode.commands.executeCommand('vir.restoreSounds');
+    }
   }
 }
 
