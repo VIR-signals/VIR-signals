@@ -9,6 +9,7 @@ import { locate } from '../engine/locate';
 import { readPendingTx } from '../engine/replace';
 import { checkVersionDrift, relayoutAfterUpdate } from '../engine/relayout';
 import { loadState, saveState } from '../engine/ledger';
+import { backupDirFor, snapshotState, writeUninstallSnapshot } from '../engine/backup';
 import { findPackById } from '../engine/pack-reader';
 import { packsDirFor } from '../engine/paths';
 import { coveredSettingKeysOfPack, enableCoveredSignals } from './settings';
@@ -67,7 +68,7 @@ async function activationPass(ctx: VirUiContext): Promise<void> {
     }
     const drift = checkVersionDrift(located.located, ctx.storageDir);
     if (drift.relayoutNeeded && drift.reason) {
-      const r = relayoutAfterUpdate(located.located, ctx.storageDir, ctx.owner);
+      const r = relayoutAfterUpdate(located.located, ctx.storageDir, ctx.owner, ctx.extensionDir);
       if (r.ok) {
         const parts = [render(drift.reason), t('ui.apply.restartHint')];
         if (r.report.newFiles.length > 0) {
@@ -79,6 +80,17 @@ async function activationPass(ctx: VirUiContext): Promise<void> {
         notes.push(parts.join(' '));
       } else {
         notes.push(render(r.error));
+      }
+    }
+    const state = loadState(ctx.storageDir);
+    if (state.applied && snapshotState(ctx.extensionDir) !== 'ok') {
+      try {
+        writeUninstallSnapshot(
+          ctx.extensionDir,
+          backupDirFor(ctx.storageDir, state.applied.fingerprint)
+        );
+      } catch (e) {
+        notes.push(String((e as Error).message));
       }
     }
   } else {
