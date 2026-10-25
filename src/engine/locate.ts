@@ -1,0 +1,115 @@
+// Mechanism one: locate the official sound directory. The running editor app
+// root is the natural starting point; the bin scripts are the authority on
+// which version folder is active. No disk wide guessing, no configured path
+// tables: every value is resolved at runtime.
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { VirMessage, msg } from './msg';
+import { mediaDirUnder } from './paths';
+import { OFFICIAL_FILES } from './slot-table';
+
+export interface Fingerprint {
+  readonly version: string;
+  readonly commit: string;
+}
+
+export interface Located {
+  readonly installRoot: string;
+  readonly versionDir: string;
+  readonly appRoot: string;
+  readonly mediaDir: string;
+  readonly fingerprint: Fingerprint;
+}
+
+export type LocateResult =
+  | { ok: true; located: Located }
+  | { ok: false; error: VirMessage };
+
+function up3(p: string): string {
+  return path.dirname(path.dirname(path.dirname(p)));
+}
+
+function readText(p: string): string | undefined {
+  try {
+    return fs.readFileSync(p, 'utf8');
+  } catch {
+    return undefined;
+  }
+}
+
+function readFingerprint(p: string): Fingerprint | undefined {
+  try {
+    const raw = JSON.parse(fs.readFileSync(p, 'utf8')) as {
+      version?: unknown;
+      commit?: unknown;
+    };
+    if (typeof raw.version !== 'string' || typeof raw.commit !== 'string') {
+      return undefined;
+    }
+    return { version: raw.version, commit: raw.commit };
+  } catch {
+    return undefined;
+  }
+}
+
+function isVersionDirCandidate(installRoot: string, dir: string | undefined): string | undefined {
+  if (!dir || !/^[0-9a-f]{6,12}$/.test(dir)) {
+    return undefined;
+  }
+  return fs.existsSync(path.join(installRoot, dir, 'resources')) ? dir : undefined;
+}
+
+export function locate(appRoot: string, manualInstallPath: string): LocateResult {
+  const manual = manualInstallPath.trim();
+  let base: string;
+  try {
+    base = fs.realpathSync(manual.length > 0 ? manual : appRoot);
+  } catch {
+    return { ok: false, error: msg('locate.pathMissing', manual.length > 0 ? manual : appRoot) };
+  }
+  if (/windowsapps/i.test(base)) {
+    return { ok: false, error: msg('locate.storeEdition') };
+  }
+  const installRoot = manual.length > 0 ? base : up3(base);
+  const runningFp = readFingerprint(path.join(appRoot, 'product.json'));
+
+  // Version folder resolution, three ways in order of authority.
+  let versionDir: string | undefined;
+  const codeSh = readText(path.join(installRoot, 'bin', 'code'));
+  const m = codeSh !== undefined ? /VERSIONFOLDER="([0-9a-f]{6,12})"/.exec(codeSh) : undefined;
+  if (m) {
+    versionDir = isVersionDirCandidate(installRoot, m[1]);
+  }
+  if (versionDir === undefined) {
+    const codeCmd = readText(path.join(installRoot, 'bin', 'code.cmd'));
+    const m2 = codeCmd !== undefined ? /\\([0-9a-f]{6,12})\\resources/.exec(codeCmd) : undefined;
+    if (m2) {
+      versionDir = isVersionDirCandidate(installRoot, m2[1]);
+    }
+  }
+  if (versionDir === undefined && runningFp) {
+    versionDir = isVersionDirCandidate(installRoot, runningFp.commit.slice(0, 10));
+  }
+  if (versionDir === undefined) {
+    return { ok: false, error: msg('locate.noVersionDir', installRoot) };
+  }
+
+  const targetAppRoot = path.join(installRoot, versionDir, 'resources', 'app');
+  const fp = readFingerprint(path.join(targetAppRoot, 'product.json'));
+  if (!fp) {
+    return { ok: false, error: msg('locate.fingerprintMissing', targetAppRoot) };
+  }
+  const mediaDir = mediaDirUnder(targetAppRoot);
+  if (!fs.existsSync(mediaDir) || !fs.statSync(mediaDir).isDirectory()) {
+    return { ok: false, error: msg('locate.mediaMissing', mediaDir) };
+  }
+  for (const f of OFFICIAL_FILES) {
+    if (!fs.existsSync(path.join(mediaDir, f))) {
+      return { ok: false, error: msg('locate.mediaMissing', mediaDir) };
+    }
+  }
+  return {
+    ok: true,
+    located: { installRoot, versionDir, appRoot: targetAppRoot, mediaDir, fingerprint: fp },
+  };
+}
