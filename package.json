@@ -15,6 +15,7 @@
     "onStartupFinished"
   ],
   "main": "./out/ui/extension.js",
+  "l10n": "./l10n",
   "categories": [
     "Other"
   ],
