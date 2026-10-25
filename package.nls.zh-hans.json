@@ -14,5 +14,7 @@
   "vir.editorInstallPath.description": "编辑器安装位手动指定，自动探测不能奏效时使用，例如便携版。",
   "vir.enabled.description": "总开关。关=扩展不干预，不动已替换文件。",
   "vir.ext.description": "用语音包音频替换编辑器内置音效文件，保留全量备份，可一键还原。",
-  "vir.cmd.enableAllSignals.title": "VIR: 一键全开信号"
+  "vir.cmd.enableAllSignals.title": "VIR: 一键全开信号",
+  "vir.packRegistryRepo.description": "选包器拉取索引的语音包索引仓（owner/name 形态）。",
+  "vir.packMirrorTemplate.description": "可选镜像前缀，拼在直连下载完整 URL 前面，例如 https://gh-proxy.com/。可达性以实测为准。"
 }

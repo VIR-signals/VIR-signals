@@ -14,5 +14,7 @@
   "vir.editorInstallPath.description": "Editor install location for manual override when automatic detection cannot resolve it, for example a portable copy.",
   "vir.enabled.description": "Master switch. Off means the extension stops intervening and leaves replaced files as they are.",
   "vir.ext.description": "Swap the editor built-in sound files with voice pack audio, with a full backup and one command restore.",
-  "vir.cmd.enableAllSignals.title": "VIR: Enable All Signals"
+  "vir.cmd.enableAllSignals.title": "VIR: Enable All Signals",
+  "vir.packRegistryRepo.description": "The owner/name of the pack registry repository the pack picker pulls its index from.",
+  "vir.packMirrorTemplate.description": "Optional mirror prefix prepended to direct download URLs, for example https://gh-proxy.com/. Reachability is whatever your network actually gives."
 }

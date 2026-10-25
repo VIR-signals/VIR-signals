@@ -98,6 +98,16 @@
           "type": "string",
           "default": "",
           "description": "%vir.editorInstallPath.description%"
+        },
+        "vir.packRegistryRepo": {
+          "type": "string",
+          "default": "VIR-signals/VIR-registry",
+          "description": "%vir.packRegistryRepo.description%"
+        },
+        "vir.packMirrorTemplate": {
+          "type": "string",
+          "default": "",
+          "description": "%vir.packMirrorTemplate.description%"
         }
       }
     }

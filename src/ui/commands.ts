@@ -14,9 +14,10 @@ import { packsDirFor } from '../engine/paths';
 import { ensureDir } from '../engine/fsutil';
 import { seedDemoPack } from './demo-seed';
 import { localPackListing, PackListing } from './pack-source';
+import { marketSelectFlow } from './market';
 import { SLOTS, affectedEventsForSlots, fileOwnerSlot } from '../engine/slot-table';
 import { findCalibrationPack, worksheetRows } from '../engine/calibrate';
-import { coveredSlotsOfPack, effectiveSound, enableCoveredSignals, applySignalSwitchMode, allSignalSettingKeys, restoreSignalToggles } from './settings';
+import { effectiveSound, enableCoveredSignals, applySignalSwitchMode, allSignalSettingKeys, restoreSignalToggles } from './settings';
 
 const SIGNAL_QUERY = 'accessibility.signals';
 const SIGNAL_KEY_PREFIX = 'accessibility.signals.';
@@ -92,33 +93,14 @@ async function cmdRescan(ctx: VirUiContext): Promise<void> {
 
 type PackChoice = { pack: PackInfo } | { none: true };
 
-async function pickPackChoice(ctx: VirUiContext): Promise<PackChoice | undefined> {
-  const packs = localPackListing(ctx).good;
-  const items: Array<{
-    label: string;
-    description?: string;
-    detail?: string;
-    pack?: PackInfo;
-    none?: boolean;
-  }> = [];
-  for (const pack of packs) {
-    const slots = coveredSlotsOfPack(pack);
-    const events = affectedEventsForSlots(slots).length;
-    items.push({
-      label: pack.name,
-      description: pack.id,
-      detail: `${slots.length}/28 - ${events}`,
-      pack,
-    });
-  }
-  items.push({ label: t('ui.select.none'), none: true });
-  const pick = await vscode.window.showQuickPick(items, {
-    placeHolder: t('ui.select.placeholder'),
-  });
-  if (pick === undefined) {
-    return undefined;
-  }
-  return pick.none === true ? { none: true } : { pack: pick.pack as PackInfo };
+// The picker is the market panel (index entries plus local packs); whatever
+// the user lands on comes back through the same choice shape the apply flow
+// already speaks.
+async function pickPackChoice(
+  ctx: VirUiContext,
+  statusBar: vscode.StatusBarItem
+): Promise<void> {
+  await marketSelectFlow(ctx, (choice) => enactPackChoice(ctx, statusBar, choice));
 }
 
 async function applyFlow(
@@ -191,11 +173,7 @@ async function enactPackChoice(
 }
 
 async function cmdSelectPack(ctx: VirUiContext, statusBar: vscode.StatusBarItem): Promise<void> {
-  const choice = await pickPackChoice(ctx);
-  if (choice === undefined) {
-    return;
-  }
-  await enactPackChoice(ctx, statusBar, choice);
+  await pickPackChoice(ctx, statusBar);
 }
 
 async function cmdApply(ctx: VirUiContext, statusBar: vscode.StatusBarItem): Promise<void> {
@@ -210,11 +188,7 @@ async function cmdApply(ctx: VirUiContext, statusBar: vscode.StatusBarItem): Pro
   const packId = activePackId();
   const pack = packId === '' ? undefined : findPackById(packsDirFor(ctx.storageDir), packId);
   if (!pack) {
-    const choice = await pickPackChoice(ctx);
-    if (choice === undefined) {
-      return;
-    }
-    await enactPackChoice(ctx, statusBar, choice);
+    await pickPackChoice(ctx, statusBar);
     return;
   }
   await applyFlow(ctx, statusBar, pack);
