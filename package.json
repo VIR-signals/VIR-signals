@@ -1,0 +1,100 @@
+{
+  "name": "vir-signals",
+  "displayName": "VIR Signals",
+  "description": "%vir.ext.description%",
+  "publisher": "VIR-signals",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "extensionKind": [
+    "ui"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "categories": [
+    "Other"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/VIR-signals/vir-signals"
+  },
+  "scripts": {
+    "vscode:uninstall": "node ./out/uninstall-hook.js",
+    "compile": "tsc -p tsconfig.json",
+    "test": "node test/run-tests.js"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.0.0",
+    "typescript": "^5.7.0"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "vir.openPacksFolder",
+        "title": "%vir.cmd.openPacksFolder.title%"
+      },
+      {
+        "command": "vir.rescan",
+        "title": "%vir.cmd.rescan.title%"
+      },
+      {
+        "command": "vir.selectPack",
+        "title": "%vir.cmd.selectPack.title%"
+      },
+      {
+        "command": "vir.apply",
+        "title": "%vir.cmd.apply.title%"
+      },
+      {
+        "command": "vir.restoreSounds",
+        "title": "%vir.cmd.restoreSounds.title%"
+      },
+      {
+        "command": "vir.openSignalSettings",
+        "title": "%vir.cmd.openSignalSettings.title%"
+      },
+      {
+        "command": "vir.restoreToggles",
+        "title": "%vir.cmd.restoreToggles.title%"
+      },
+      {
+        "command": "vir.status",
+        "title": "%vir.cmd.status.title%"
+      },
+      {
+        "command": "vir.deleteBackup",
+        "title": "%vir.cmd.deleteBackup.title%"
+      },
+      {
+        "command": "vir.identify",
+        "title": "%vir.cmd.identify.title%"
+      }
+    ],
+    "configuration": {
+      "title": "%vir.config.title%",
+      "properties": {
+        "vir.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "%vir.enabled.description%"
+        },
+        "vir.activePack": {
+          "type": "string",
+          "default": "",
+          "description": "%vir.activePack.description%"
+        },
+        "vir.editorInstallPath": {
+          "type": "string",
+          "default": "",
+          "description": "%vir.editorInstallPath.description%"
+        }
+      }
+    }
+  }
+}
