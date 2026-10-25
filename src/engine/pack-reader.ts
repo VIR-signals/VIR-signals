@@ -249,6 +249,19 @@ export function readPack(dir: string): ReadPackResult {
   };
 }
 
+// Look up a usable pack by id in the pack folder.
+export function findPackById(packsDir: string, id: string): PackInfo | undefined {
+  if (id === '') {
+    return undefined;
+  }
+  for (const s of scanPacks(packsDir)) {
+    if (s.result.ok && s.result.pack.id === id) {
+      return s.result.pack;
+    }
+  }
+  return undefined;
+}
+
 export interface ScannedPack {
   dir: string;
   folderName: string;
