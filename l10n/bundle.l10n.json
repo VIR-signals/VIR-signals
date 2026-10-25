@@ -92,5 +92,7 @@
   "ui.enableAll.done": "{0} signal settings switched on.",
   "ui.enableAll.noPack": "No active pack, so nothing was changed.",
   "ui.relayout.newFiles": "new files",
-  "ui.relayout.vanishedFiles": "vanished files"
+  "ui.relayout.vanishedFiles": "vanished files",
+  "ui.nls.reloadHint": "The command palette follows the editor language after one window reload. Reload now so the command names switch at once.",
+  "ui.nls.reloadNow": "Reload window now"
 }
