@@ -92,5 +92,7 @@
   "ui.enableAll.done": "已开启 {0} 个信号设置。",
   "ui.enableAll.noPack": "没有当前包，未做任何改动。",
   "ui.relayout.newFiles": "新增文件",
-  "ui.relayout.vanishedFiles": "消失文件"
+  "ui.relayout.vanishedFiles": "消失文件",
+  "ui.nls.reloadHint": "命令面板的命令名需要重载一次窗口才会跟随编辑器语言。现在就重载，让命令名立刻切换。",
+  "ui.nls.reloadNow": "立即重载窗口"
 }
