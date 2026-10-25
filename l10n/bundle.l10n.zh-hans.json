@@ -164,5 +164,7 @@
   "platform.readOnlyMount": "{0} 安装在只读文件系统上，无法替换官方音效，提权也救不了。请改装 deb/rpm/tarball 版，详见扩展 README。",
   "platform.probeIo": "无法写入音效目录（{0}），未做任何改动。",
   "apply.fileMissing": "此编辑器版本未携带槽位文件 {0}，该槽位保留官方原声。",
-  "ui.status.missingFiles": "本编辑器版本未携带、槽位保留官方原声的文件：{0}"
+  "ui.status.missingFiles": "本编辑器版本未携带、槽位保留官方原声的文件：{0}",
+  "registry.entryLanguage": "索引条目 {0} 的 language 非法。",
+  "registry.entryCategories": "索引条目 {0} 的 categories 非法。"
 }

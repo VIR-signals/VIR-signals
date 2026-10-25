@@ -164,5 +164,7 @@
   "platform.readOnlyMount": "{0} installs live on a read only filesystem; the official sounds cannot be replaced there, and elevation would not help. Install the deb, rpm, or tarball build instead; see the extension README.",
   "platform.probeIo": "Cannot write into the sound directory ({0}); nothing was changed.",
   "apply.fileMissing": "Slot file {0} is not shipped by this editor build; that slot keeps the official sound.",
-  "ui.status.missingFiles": "Not shipped by this editor build, those slots keep official sounds: {0}"
+  "ui.status.missingFiles": "Not shipped by this editor build, those slots keep official sounds: {0}",
+  "registry.entryLanguage": "Index entry {0} has a bad language tag.",
+  "registry.entryCategories": "Index entry {0} has a bad categories list."
 }

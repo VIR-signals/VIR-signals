@@ -19,6 +19,8 @@ export const REGISTRY_FILE = 'registry.json';
 const RE_ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const RE_REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const RE_COMMIT = /^[0-9a-f]{40}$/;
+const RE_LOCALE = /^[a-z]{2,3}(-[a-z0-9]{2,8})*$/;
+const CATEGORIES = ['game', 'ui', 'voice', 'ambient', 'fun', 'other'];
 
 export interface RegistryEntry {
   id: string;
@@ -83,26 +85,44 @@ function parseEntry(rawEntry: unknown, index: number): RegistryEntry | VirMessag
   if (parseVersion(str(e.version)) === undefined) {
     return msg('registry.entryVersion', where);
   }
+  // Display only fields get the same gate as the registry repository: the
+  // index is untrusted input here, not something a CI upstream already
+  // vetted.
+  const language = str(e.language);
+  if (language !== 'none' && !RE_LOCALE.test(language)) {
+    return msg('registry.entryLanguage', where);
+  }
   const namesRaw = e.names ?? {};
   if (typeof namesRaw !== 'object' || namesRaw === null || Array.isArray(namesRaw)) {
     return msg('registry.entryNames', where);
   }
   const names: Record<string, string> = {};
   for (const locale of Object.keys(namesRaw)) {
+    if (!RE_LOCALE.test(locale)) {
+      return msg('registry.entryNames', where);
+    }
     const v = (namesRaw as Record<string, unknown>)[locale];
     if (typeof v !== 'string' || v === '') {
       return msg('registry.entryNames', where);
     }
     names[locale] = v;
   }
-  const categories = Array.isArray(e.categories)
-    ? (e.categories as unknown[]).filter((c): c is string => typeof c === 'string')
-    : [];
+  if (e.categories !== undefined) {
+    if (!Array.isArray(e.categories)) {
+      return msg('registry.entryCategories', where);
+    }
+    for (const c of e.categories as unknown[]) {
+      if (typeof c !== 'string' || !CATEGORIES.includes(c)) {
+        return msg('registry.entryCategories', where);
+      }
+    }
+  }
+  const categories = Array.isArray(e.categories) ? (e.categories as string[]) : [];
   return {
     id,
     names,
     categories,
-    language: str(e.language),
+    language,
     author: str(e.author),
     version: str(e.version),
     repo,

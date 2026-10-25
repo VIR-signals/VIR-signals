@@ -158,6 +158,20 @@ test('network failure carries every hop attempt', async () => {
   }
 });
 
+test('display only fields fail closed like the registry repository rules', async () => {
+  const upperLang = { schema: 1, packs: [{ ...GOOD.packs[0], language: 'ZH' }] };
+  const r1 = await fetchRegistry(ioWith(JSON.stringify(upperLang)), OPTS);
+  assert.ok(!r1.ok && r1.error.key === 'registry.entryLanguage');
+
+  const badLocale = { schema: 1, packs: [{ ...GOOD.packs[0], names: { 'zh-CN': 'x' } }] };
+  const r2 = await fetchRegistry(ioWith(JSON.stringify(badLocale)), OPTS);
+  assert.ok(!r2.ok && r2.error.key === 'registry.entryNames');
+
+  const badCat = { schema: 1, packs: [{ ...GOOD.packs[0], categories: ['ui', 'nsfw'] }] };
+  const r3 = await fetchRegistry(ioWith(JSON.stringify(badCat)), OPTS);
+  assert.ok(!r3.ok && r3.error.key === 'registry.entryCategories');
+});
+
 test('display name picks exact locale, primary subtag, then id', () => {
   const entry = {
     id: 'demo',
