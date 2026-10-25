@@ -26,7 +26,7 @@ if (compile.status !== 0) {
   process.exit(compile.status === null ? 1 : compile.status);
 }
 
-const testRun = spawnSync(process.execPath, ['--test', 'out-test/test/*.test.js'], {
+const testRun = spawnSync(process.execPath, ['--test', '--test-reporter=tap', 'out-test/test/*.test.js'], {
   cwd: root,
   encoding: 'utf8',
   maxBuffer: 64 * 1024 * 1024,
