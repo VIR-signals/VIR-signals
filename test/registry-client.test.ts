@@ -98,6 +98,15 @@ test('an entry with an escaped packPath is refused', async () => {
   }
 });
 
+test('an entry packPath with an empty segment is refused', async () => {
+  const bad = { schema: 1, packs: [{ ...GOOD.packs[0], packPath: 'pack//inner' }] };
+  const r = await fetchRegistry(ioWith(JSON.stringify(bad)), OPTS);
+  assert.equal(r.ok, false);
+  if (!r.ok) {
+    assert.equal(r.error.key, 'registry.entryPackPath');
+  }
+});
+
 test('an entry with a short commit is refused', async () => {
   const bad = { schema: 1, packs: [{ ...GOOD.packs[0], commit: 'abc123' }] };
   const r = await fetchRegistry(ioWith(JSON.stringify(bad)), OPTS);

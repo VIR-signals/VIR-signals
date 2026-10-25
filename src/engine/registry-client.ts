@@ -75,8 +75,9 @@ function parseEntry(rawEntry: unknown, index: number): RegistryEntry | VirMessag
     return msg('registry.entryRepo', where);
   }
   const packPath = str(e.packPath);
-  const unsafe = checkPathSafety(packPath);
-  if (unsafe) {
+  // Entry pack paths follow the registry rule set, which additionally bans
+  // empty segments.
+  if (packPath.split('/').includes('') || checkPathSafety(packPath)) {
     return msg('registry.entryPackPath', where);
   }
   if (parseVersion(str(e.version)) === undefined) {

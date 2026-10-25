@@ -112,7 +112,7 @@ export async function fetchRemoteManifest(
     return { ok: false, error: msg('install.commitBad', loc.commit), attempts: [] };
   }
   const unsafe = checkPathSafety(loc.packPath);
-  if (unsafe || loc.packPath === '') {
+  if (unsafe || loc.packPath === '' || loc.packPath.split('/').includes('')) {
     return { ok: false, error: msg('install.packPathBad', loc.packPath), attempts: [] };
   }
   const sig = signal ?? new AbortController().signal;
