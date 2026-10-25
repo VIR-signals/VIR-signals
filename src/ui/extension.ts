@@ -9,7 +9,7 @@ import { locate } from '../engine/locate';
 import { readPendingTx } from '../engine/replace';
 import { checkVersionDrift, relayoutAfterUpdate } from '../engine/relayout';
 import { loadState, saveState } from '../engine/ledger';
-import { backupDirFor, snapshotState, writeUninstallSnapshot } from '../engine/backup';
+import { backupDirFor, ensureBackup, snapshotState, writeUninstallSnapshot } from '../engine/backup';
 import { findPackById } from '../engine/pack-reader';
 import { packsDirFor } from '../engine/paths';
 import { coveredSettingKeysOfPack, enableCoveredSignals } from './settings';
@@ -63,6 +63,10 @@ async function activationPass(ctx: VirUiContext): Promise<void> {
   const notes: string[] = [];
   const located = locate(vscode.env.appRoot, manualInstallPath());
   if (located.ok) {
+    const ensured = ensureBackup(located.located, ctx.storageDir, ctx.owner);
+    if (!ensured.ok && ensured.error.key !== 'lock.busy') {
+      notes.push(render(ensured.error));
+    }
     if (readPendingTx(located.located.mediaDir) !== undefined) {
       notes.push(t('ui.status.recoveryPending'));
     }
@@ -98,8 +102,29 @@ async function activationPass(ctx: VirUiContext): Promise<void> {
   }
   const firstRunNotes = await firstRunFlow(ctx);
   notes.push(...firstRunNotes);
+  await nlsReloadOffer();
   if (notes.length > 0) {
     await vscode.window.showWarningMessage(notes.join('\n'));
+  }
+}
+
+// Mid session installs get served the default language bundle by the still
+// running extension host: command titles and the platform l10n stay English
+// until one host reload. Detect the mismatch through our own runtime bundle
+// and offer the shortest path: one click reload.
+function platformNlsStale(): boolean {
+  const probe = 'ui.firstRun.message';
+  return vscode.l10n.t(probe) !== t(probe);
+}
+
+async function nlsReloadOffer(): Promise<void> {
+  if (!platformNlsStale()) {
+    return;
+  }
+  const now = t('ui.nls.reloadNow');
+  const pick = await vscode.window.showInformationMessage(t('ui.nls.reloadHint'), now);
+  if (pick === now) {
+    await vscode.commands.executeCommand('workbench.action.reloadWindow');
   }
 }
 
