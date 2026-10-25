@@ -30,15 +30,22 @@ export function buildFakeWav(p: string, seconds: number): void {
   fs.writeFileSync(p, buf);
 }
 
-// Deterministic fake MP3 payload with a valid ID3 magic.
+// Deterministic fake MP3 payload: ID3v2 header with zero tag size plus one
+// 128 kbps MPEG1 Layer III frame header, then filler bytes.
 export function fakeMp3(seed: string, size = 512): Buffer {
   const buf = Buffer.alloc(size);
   buf.write('ID3', 0, 'ascii');
+  buf.writeUInt8(3, 3);
+  buf.writeUInt8(0, 4);
+  buf.writeUInt8(0, 5);
+  buf[10] = 0xff;
+  buf[11] = 0xfb;
+  buf[12] = 0x90;
   let h = 2166136261;
   for (let i = 0; i < seed.length; i++) {
     h = (h ^ seed.charCodeAt(i)) * 16777619;
   }
-  for (let i = 3; i < size; i++) {
+  for (let i = 13; i < size; i++) {
     h = (h * 16777619 + i) >>> 0;
     buf[i] = h & 0xff;
   }
