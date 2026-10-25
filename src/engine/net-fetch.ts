@@ -14,6 +14,10 @@ export const SOURCE_TXT_LIMIT_BYTES = 64 * 1024;
 
 export const AUDIO_LIMIT_BYTES = 20 * 1024 * 1024;
 export const HOP_TIMEOUT_MS = 30 * 1000;
+// Small text fetches (index, manifests) are kilobyte scale: a short hop
+// timeout keeps the picker from hanging for minutes when the registry
+// host is unreachable.
+export const TEXT_HOP_TIMEOUT_MS = 10 * 1000;
 export const PACK_DEADLINE_MS = 120 * 1000;
 export const PACK_CONCURRENCY = 4;
 

@@ -10,7 +10,7 @@ import * as path from 'node:path';
 import { render, t } from './render';
 import { VirUiContext } from './extension-context';
 import { localPackListing } from './pack-source';
-import { PackInfo, findPackById, parseVersion } from '../engine/pack-reader';
+import { PackInfo, compareVersion, findPackById, parseVersion } from '../engine/pack-reader';
 import { packsDirFor } from '../engine/paths';
 import { SLOTS, affectedEventsForSlots } from '../engine/slot-table';
 import { slotNamesOfKeys } from './market-format';
@@ -18,8 +18,8 @@ import {
   buildHopUrls,
   fetchFiles,
   httpsRawIo,
-  HOP_TIMEOUT_MS,
   MANIFEST_LIMIT_BYTES,
+  TEXT_HOP_TIMEOUT_MS,
 } from '../engine/net-fetch';
 import { RegistryEntry, displayName, fetchRegistry } from '../engine/registry-client';
 import {
@@ -71,7 +71,7 @@ async function prefetchManifestSlots(
     }),
     limitBytes: MANIFEST_LIMIT_BYTES,
   }));
-  const rs = await fetchFiles(httpsRawIo, jobs, { timeoutMs: HOP_TIMEOUT_MS, deadlineMs: 60 * 1000 });
+  const rs = await fetchFiles(httpsRawIo, jobs, { timeoutMs: TEXT_HOP_TIMEOUT_MS, deadlineMs: 30 * 1000 });
   const map = new Map<string, ReadonlyArray<string>>();
   rs.forEach((r, i) => {
     if (!r.ok) {
@@ -290,13 +290,7 @@ export async function marketSelectFlow(
       let mark = '    ';
       if (local !== undefined) {
         const remoteTriple = parseVersion(entry.version);
-        const newer =
-          local !== undefined && remoteTriple !== undefined
-            ? remoteTriple[0] > local.versionTriple[0] ||
-              (remoteTriple[0] === local.versionTriple[0] &&
-                (remoteTriple[1] > local.versionTriple[1] ||
-                  (remoteTriple[1] === local.versionTriple[1] && remoteTriple[2] > local.versionTriple[2])))
-            : false;
+        const newer = remoteTriple !== undefined && compareVersion(remoteTriple, local.versionTriple) > 0;
         mark = newer ? '↑ ' : '✓ ';
       }
       items.push({

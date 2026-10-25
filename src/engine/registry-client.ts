@@ -7,9 +7,9 @@ import {
   buildHopUrls,
   fetchFile,
   HopAttempt,
-  HOP_TIMEOUT_MS,
   RawIo,
   REGISTRY_LIMIT_BYTES,
+  TEXT_HOP_TIMEOUT_MS,
 } from './net-fetch';
 import { checkPathSafety, parseVersion } from './pack-reader';
 
@@ -122,7 +122,7 @@ export async function fetchRegistry(rawIo: RawIo, opts: RegistryOptions): Promis
     mirrorPrefix: opts.mirrorPrefix,
   });
   const signal = opts.signal ?? new AbortController().signal;
-  const r = await fetchFile(rawIo, urls, REGISTRY_LIMIT_BYTES, HOP_TIMEOUT_MS, signal);
+  const r = await fetchFile(rawIo, urls, REGISTRY_LIMIT_BYTES, TEXT_HOP_TIMEOUT_MS, signal);
   if (!r.ok) {
     return { ok: false, reason: 'registry.net', error: msg('registry.net'), attempts: r.attempts };
   }
