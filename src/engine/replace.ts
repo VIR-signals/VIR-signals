@@ -24,6 +24,7 @@ import {
   takeBackup,
   verifyBackup,
   writeMarker,
+  writeUninstallSnapshot,
 } from './backup';
 import {
   atomicWriteFile,
@@ -168,7 +169,8 @@ export function applyPack(
   located: Located,
   pack: PackInfo,
   storageDir: string,
-  owner: string
+  owner: string,
+  extensionDir?: string
 ): ApplyOutcome {
   const lock = acquireLock(storageDir, owner);
   if (!lock.ok) {
@@ -249,6 +251,9 @@ export function applyPack(
     });
     fs.rmSync(txPath(located.mediaDir), { force: true });
     fs.rmSync(stagingDir, { recursive: true, force: true });
+    if (extensionDir !== undefined) {
+      writeUninstallSnapshot(extensionDir, backupDir);
+    }
 
     const state = loadState(storageDir);
     state.applied = {
