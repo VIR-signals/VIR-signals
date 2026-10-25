@@ -134,7 +134,7 @@ async function cmdApply(ctx: VirUiContext, statusBar: vscode.StatusBarItem): Pro
   if (!located) {
     return;
   }
-  const r = applyPack(located, pack, ctx.storageDir, ctx.owner);
+  const r = applyPack(located, pack, ctx.storageDir, ctx.owner, ctx.extensionDir);
   if (!r.ok) {
     await vscode.window.showErrorMessage(render(r.error));
     return;
@@ -269,7 +269,7 @@ async function cmdIdentify(ctx: VirUiContext): Promise<void> {
   if (!located) {
     return;
   }
-  const r = applyPack(located, calib, ctx.storageDir, ctx.owner);
+  const r = applyPack(located, calib, ctx.storageDir, ctx.owner, ctx.extensionDir);
   if (!r.ok) {
     await vscode.window.showErrorMessage(render(r.error));
     return;
