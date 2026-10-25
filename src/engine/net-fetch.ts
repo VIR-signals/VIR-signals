@@ -23,7 +23,7 @@ export interface RawResponse {
   stream: AsyncIterable<Buffer>;
 }
 
-export type RawIo = (url: string, signal: AbortSignal) => Promise<RawResponse>;
+export type RawIo = (url: string, signal: AbortSignal, headers?: Record<string, string>) => Promise<RawResponse>;
 
 export type HopFailure =
   | 'net.httpStatus'
@@ -48,14 +48,15 @@ async function runHop(
   url: string,
   limitBytes: number,
   timeoutMs: number,
-  outerSignal: AbortSignal
+  outerSignal: AbortSignal,
+  headers?: Record<string, string>
 ): Promise<HopOutcome> {
   const controller = new AbortController();
   const stop = () => controller.abort();
   outerSignal.addEventListener('abort', stop, { once: true });
   const timer = setTimeout(stop, timeoutMs);
   try {
-    const res = await rawIo(url, controller.signal);
+    const res = await rawIo(url, controller.signal, headers);
     if (res.status < 200 || res.status >= 300) {
       return { ok: false, failure: 'net.httpStatus', detail: msg('net.httpStatus', url, res.status) };
     }
@@ -106,12 +107,13 @@ export async function fetchFile(
   urls: ReadonlyArray<string>,
   limitBytes: number,
   timeoutMs: number,
-  signal: AbortSignal
+  signal: AbortSignal,
+  headers?: Record<string, string>
 ): Promise<FetchFileOutcome> {
   const attempts: HopAttempt[] = [];
   for (let round = 0; round < 2; round++) {
     for (const url of urls) {
-      const r = await runHop(rawIo, url, limitBytes, timeoutMs, signal);
+      const r = await runHop(rawIo, url, limitBytes, timeoutMs, signal, headers);
       if (r.ok) {
         return { ok: true, data: r.data, url, attempts };
       }
@@ -224,9 +226,13 @@ export function buildHopUrls(input: HopUrlsInput): string[] {
 
 // Production hop IO on node:https. The response stream is the raw
 // IncomingMessage exposed as an async iterable.
-export function httpsRawIo(url: string, signal: AbortSignal): Promise<RawResponse> {
+export function httpsRawIo(
+  url: string,
+  signal: AbortSignal,
+  headers?: Record<string, string>
+): Promise<RawResponse> {
   return new Promise((resolve, reject) => {
-    const req = https.get(url, (res) => {
+    const req = https.get(url, { headers }, (res) => {
       resolve({
         status: res.statusCode ?? 0,
         headers: res.headers as Record<string, string | undefined>,
