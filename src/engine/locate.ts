@@ -59,6 +59,29 @@ function isVersionDirCandidate(installRoot: string, dir: string | undefined): st
   return fs.existsSync(path.join(installRoot, dir, 'resources')) ? dir : undefined;
 }
 
+// Version folder resolution from the install root, three ways in order of
+// authority: the bin sh pointer, the bin cmd path pattern, then the commit
+// prefix directory. Shared by locate and the uninstall hook.
+export function resolveVersionDir(installRoot: string, commitPrefix: string | undefined): string | undefined {
+  let versionDir: string | undefined;
+  const codeSh = readText(path.join(installRoot, 'bin', 'code'));
+  const m = codeSh !== undefined ? /VERSIONFOLDER="([0-9a-f]{6,12})"/.exec(codeSh) : undefined;
+  if (m) {
+    versionDir = isVersionDirCandidate(installRoot, m[1]);
+  }
+  if (versionDir === undefined) {
+    const codeCmd = readText(path.join(installRoot, 'bin', 'code.cmd'));
+    const m2 = codeCmd !== undefined ? /\\([0-9a-f]{6,12})\\resources/.exec(codeCmd) : undefined;
+    if (m2) {
+      versionDir = isVersionDirCandidate(installRoot, m2[1]);
+    }
+  }
+  if (versionDir === undefined && commitPrefix !== undefined) {
+    versionDir = isVersionDirCandidate(installRoot, commitPrefix);
+  }
+  return versionDir;
+}
+
 export function locate(appRoot: string, manualInstallPath: string): LocateResult {
   const manual = manualInstallPath.trim();
   let base: string;
@@ -73,23 +96,7 @@ export function locate(appRoot: string, manualInstallPath: string): LocateResult
   const installRoot = manual.length > 0 ? base : up3(base);
   const runningFp = readFingerprint(path.join(appRoot, 'product.json'));
 
-  // Version folder resolution, three ways in order of authority.
-  let versionDir: string | undefined;
-  const codeSh = readText(path.join(installRoot, 'bin', 'code'));
-  const m = codeSh !== undefined ? /VERSIONFOLDER="([0-9a-f]{6,12})"/.exec(codeSh) : undefined;
-  if (m) {
-    versionDir = isVersionDirCandidate(installRoot, m[1]);
-  }
-  if (versionDir === undefined) {
-    const codeCmd = readText(path.join(installRoot, 'bin', 'code.cmd'));
-    const m2 = codeCmd !== undefined ? /\\([0-9a-f]{6,12})\\resources/.exec(codeCmd) : undefined;
-    if (m2) {
-      versionDir = isVersionDirCandidate(installRoot, m2[1]);
-    }
-  }
-  if (versionDir === undefined && runningFp) {
-    versionDir = isVersionDirCandidate(installRoot, runningFp.commit.slice(0, 10));
-  }
+  const versionDir = resolveVersionDir(installRoot, runningFp ? runningFp.commit.slice(0, 10) : undefined);
   if (versionDir === undefined) {
     return { ok: false, error: msg('locate.noVersionDir', installRoot) };
   }
