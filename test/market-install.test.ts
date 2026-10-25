@@ -321,6 +321,36 @@ test('branch head resolves to a full SHA through the API', async () => {
   assert.equal(calls[0], 'https://api.github.com/repos/someone/demo-pack/commits/main');
 });
 
+test('branch head falls back to the mirror hop for the API', async () => {
+  const root = makeTempRoot();
+  let calls = 0;
+  const io: RawIo = async (url: string) => {
+    calls += 1;
+    const direct = url.startsWith('https://api.github.com/');
+    const body = JSON.stringify({ sha: SHA });
+    if (direct && calls <= 2) {
+      return { status: 503, headers: {}, stream: (async function* () {})() };
+    }
+    return {
+      status: 200,
+      headers: { 'content-length': String(body.length) },
+      stream: (async function* () {
+        yield Buffer.from(body);
+      })(),
+    };
+  };
+  const r = await resolveBranchHead(io, 'someone/demo-pack', 'main', 'https://m.example/');
+  assert.ok(r.ok && r.sha === SHA);
+});
+
+test('a bad repository shape refuses before any request', async () => {
+  const root = makeTempRoot();
+  const { io, calls } = repoIo(root);
+  const r = await resolveBranchHead(io, 'not-a-repo', 'main', '');
+  assert.ok(!r.ok && r.error.key === 'direct.repoBad');
+  assert.equal(calls.length, 0);
+});
+
 test('installed audio requests always reference the SHA, never the branch', async () => {
   const root = makeTempRoot();
   stageRemote(root);

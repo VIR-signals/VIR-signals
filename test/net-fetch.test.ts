@@ -176,6 +176,23 @@ test('fetchFiles deadline expires hanging jobs as timeouts', async () => {
   assert.ok(rs[0].attempts.every((a) => a.failure === 'net.timeout'));
 });
 
+test('a canceled batch reports every file as aborted', async () => {
+  const f = makeFakeIo(() => ({ hang: true }));
+  const c = new AbortController();
+  const pending = fetchFiles(
+    f.io,
+    [
+      { name: 'a', urls: ['https://x.example/a'], limitBytes: 100 },
+      { name: 'b', urls: ['https://x.example/b'], limitBytes: 100 },
+    ],
+    { timeoutMs: 5000, deadlineMs: 10_000, signal: c.signal }
+  );
+  setTimeout(() => c.abort(), 30);
+  const rs = await pending;
+  assert.ok(rs.every((r) => !r.ok));
+  assert.ok(rs.every((r) => r.attempts.every((a) => a.failure === 'net.aborted')));
+});
+
 test('fetchFiles surfaces per file failures without touching others', async () => {
   const f = makeFakeIo((u) => (u.endsWith('bad') ? { status: 500 } : { chunks: [Buffer.from('k')] }));
   const rs = await fetchFiles(

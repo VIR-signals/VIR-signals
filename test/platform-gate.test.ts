@@ -6,7 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { checkPlatform, GateProbes } from '../src/engine/platform-gate';
+import { checkPlatform, defaultProbes, GateProbes } from '../src/engine/platform-gate';
 import { Located, locate } from '../src/engine/locate';
 import { applyPack } from '../src/engine/replace';
 import { readPack } from '../src/engine/pack-reader';
@@ -147,6 +147,20 @@ test('apply skips slot files the editor variant does not ship', () => {
     assert.ok(r.ok && r.report.disabled['save.mp3'].key === 'apply.fileMissing');
     assert.ok(r.ok && !r.report.replaced.includes('save.mp3'));
     assert.equal(fs.existsSync(path.join(tree.mediaDir, 'save.mp3')), false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('the real probe writes and removes its file, leaving nothing behind', () => {
+  const root = makeTempRoot();
+  try {
+    const dir = path.join(root, 'media');
+    fs.mkdirSync(dir, { recursive: true });
+    const probes = defaultProbes();
+    const r = probes.writeProbe(dir);
+    assert.deepEqual(r, { ok: true });
+    assert.equal(fs.readdirSync(dir).length, 0);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
