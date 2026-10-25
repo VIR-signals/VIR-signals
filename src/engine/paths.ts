@@ -35,3 +35,8 @@ export const PROGRESS_SOFT_SECONDS = 1;
 export function mediaDirUnder(versionedAppRoot: string): string {
   return path.join(versionedAppRoot, ...MEDIA_DIR_SEGMENTS);
 }
+
+// Voice pack folder inside the extension storage area.
+export function packsDirFor(storageDir: string): string {
+  return path.join(storageDir, PACKS_DIR_NAME);
+}
