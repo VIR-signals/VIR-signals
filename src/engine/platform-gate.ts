@@ -9,6 +9,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { VirMessage, msg } from './msg';
 import { Located } from './locate';
+import { PROBE_NAME } from './paths';
 
 export type PlatformVerdict = { ok: true } | { ok: false; error: VirMessage };
 
@@ -30,7 +31,10 @@ export function defaultProbes(): GateProbes {
 }
 
 function realWriteProbe(mediaDir: string): { ok: true } | { ok: false; code: string } {
-  const target = path.join(mediaDir, '.vir-probe-' + Date.now().toString(36));
+  // Fixed name on purpose: a probe left behind by a crash stays
+  // recognizable, idempotent on the next run, and is excluded from backup
+  // and relayout listings like every other control file we own.
+  const target = path.join(mediaDir, PROBE_NAME);
   try {
     fs.writeFileSync(target, '');
     fs.rmSync(target, { force: true });

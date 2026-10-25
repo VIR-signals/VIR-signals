@@ -12,6 +12,7 @@ export const MEDIA_DIR_SEGMENTS: ReadonlyArray<string> = [
 ];
 
 export const MARKER_NAME = '.vir.marker';
+export const PROBE_NAME = '.vir-probe';
 export const LOCK_NAME = 'vir.lock';
 export const STATE_NAME = 'vir-state.json';
 export const TX_NAME = 'vir-tx.json';

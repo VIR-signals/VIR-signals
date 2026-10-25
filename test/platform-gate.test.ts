@@ -151,3 +151,40 @@ test('apply skips slot files the editor variant does not ship', () => {
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('a probe file left in the media dir never reaches backup or apply', () => {
+  const root = makeTempRoot();
+  try {
+    const tree = buildInstallTree(root);
+    fs.writeFileSync(path.join(tree.mediaDir, '.vir-probe'), '');
+    const located = locate(tree.appRoot, '');
+    assert.ok(located.ok);
+    const storageDir = path.join(root, 'storage');
+    const packDir = buildPack(root, 'mini2', { error: 'sounds/e.wav' });
+    writePackManifest(packDir, {
+      schema: 1,
+      id: 'mini2',
+      name: 'Mini2',
+      version: '1.0.0',
+      author: 'A',
+      license: 'MIT',
+      sourceLicense: 'original',
+      slots: { error: 'sounds/e.wav' },
+    });
+    const read = readPack(packDir);
+    assert.ok(read.ok);
+    const r = applyPack(located.located, read.pack, storageDir, 'owner-y');
+    assert.equal(r.ok, true);
+    const backupDir = path.join(storageDir, 'backup');
+    const versions = fs.readdirSync(backupDir);
+    assert.equal(versions.length, 1);
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(backupDir, versions[0], 'backup.json'), 'utf8')
+    );
+    assert.equal('.vir-probe' in manifest.files, false);
+    const st = JSON.parse(fs.readFileSync(path.join(storageDir, 'vir-state.json'), 'utf8'));
+    assert.equal('.vir-probe' in st.applied.files, false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

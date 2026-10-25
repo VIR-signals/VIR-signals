@@ -5,7 +5,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { msg, VirMessage } from './msg';
-import { BACKUP_DIR_NAME, BACKUP_MANIFEST_NAME, MARKER_NAME, SNAPSHOT_DIR_NAME, SNAPSHOT_MANIFEST_NAME } from './paths';
+import { BACKUP_DIR_NAME, BACKUP_MANIFEST_NAME, MARKER_NAME, PROBE_NAME, SNAPSHOT_DIR_NAME, SNAPSHOT_MANIFEST_NAME, TX_NAME } from './paths';
 import { acquireLock, releaseLock } from './lock';
 import { Fingerprint, Located } from './locate';
 import { atomicWriteFile, copyFileVerified, ensureDir, listDirs, listFiles, readJsonSync, sha256File } from './fsutil';
@@ -72,7 +72,10 @@ export function takeBackup(located: Located, storageDir: string): BackupResult {
   }
   const dir = backupDirFor(storageDir, located.fingerprint);
   ensureDir(dir);
-  const names = listFiles(located.mediaDir);
+  // Control files we own never belong in a backup of official content.
+  const names = listFiles(located.mediaDir).filter(
+    (n) => n !== MARKER_NAME && n !== TX_NAME && n !== PROBE_NAME
+  );
   if (names.length === 0) {
     return { ok: false, error: msg('backup.emptyDir', located.mediaDir) };
   }

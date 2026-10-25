@@ -4,7 +4,7 @@
 // under the on site marker rule and the active pack is laid over the new
 // files. The old and new directory listings are diffed and reported as is.
 import { VirMessage, msg } from './msg';
-import { MARKER_NAME, TX_NAME, packsDirFor } from './paths';
+import { MARKER_NAME, PROBE_NAME, TX_NAME, packsDirFor } from './paths';
 import { Located } from './locate';
 import { loadState, saveState } from './ledger';
 import { listFiles } from './fsutil';
@@ -75,7 +75,7 @@ export function relayoutAfterUpdate(
     warnings.push(msg('relayout.oldListingMissing'));
   }
   const newListing = listFiles(located.mediaDir).filter(
-    (n) => n !== TX_NAME && n !== MARKER_NAME
+    (n) => n !== TX_NAME && n !== MARKER_NAME && n !== PROBE_NAME
   );
   const newFiles = newListing.filter((n) => !oldListing.includes(n));
   const vanishedFiles = oldListing.filter((n) => !newListing.includes(n));
