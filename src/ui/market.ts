@@ -277,7 +277,16 @@ export async function marketSelectFlow(
 
   const items: MarketPickItem[] = [];
   if (!registry.ok) {
-    items.push({ label: '$(warning)' + ' ' + t('ui.market.indexUnavailable'), detail: render(registry.error), indexError: true });
+    // Per source failure reasons ride the detail line: a silent generic
+    // error would hide which hops were tried.
+    items.push({
+      label: '$(warning)' + ' ' + t('ui.market.indexUnavailable'),
+      detail:
+        render(registry.error) +
+        '\n' +
+        attemptsText({ status: 'failed', error: registry.error, attempts: registry.attempts }),
+      indexError: true,
+    });
   }
   items.push({ label: '$(globe)' + ' ' + t('ui.market.directInstall'), direct: true, detail: t('ui.market.directDetail') });
   if (registry.ok) {
