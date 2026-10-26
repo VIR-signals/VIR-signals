@@ -30,10 +30,6 @@ import {
   resolveBranchHead,
 } from '../engine/market-install';
 
-export interface MarketChoice {
-  kind: 'none';
-}
-
 interface MarketPickItem extends vscode.QuickPickItem {
   entry?: RegistryEntry;
   localPack?: PackInfo;
