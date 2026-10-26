@@ -167,5 +167,6 @@
   "ui.status.missingFiles": "Not shipped by this editor build, those slots keep official sounds: {0}",
   "registry.entryLanguage": "Index entry {0} has a bad language tag.",
   "registry.entryCategories": "Index entry {0} has a bad categories list.",
-  "install.slotReserved": "Slot {0} points at the reserved file {1}; refusing to install."
+  "install.slotReserved": "Slot {0} points at the reserved file {1}; refusing to install.",
+  "registry.repoBad": "The configured registry repository is not owner/name: {0}"
 }

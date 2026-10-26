@@ -158,6 +158,19 @@ test('network failure carries every hop attempt', async () => {
   }
 });
 
+test('a malformed configured registry repository is refused before any request', async () => {
+  let calls = 0;
+  const io = async () => {
+    calls += 1;
+    throw new Error('no requests expected');
+  };
+  const r = await fetchRegistry(io as never, { registryRepo: '', mirrorPrefix: '' });
+  assert.ok(!r.ok && r.error.key === 'registry.repoBad');
+  const r2 = await fetchRegistry(io as never, { registryRepo: 'https://x/y', mirrorPrefix: '' });
+  assert.ok(!r2.ok && r2.error.key === 'registry.repoBad');
+  assert.equal(calls, 0);
+});
+
 test('display only fields fail closed like the registry repository rules', async () => {
   const upperLang = { schema: 1, packs: [{ ...GOOD.packs[0], language: 'ZH' }] };
   const r1 = await fetchRegistry(ioWith(JSON.stringify(upperLang)), OPTS);

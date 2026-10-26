@@ -135,6 +135,9 @@ function parseEntry(rawEntry: unknown, index: number): RegistryEntry | VirMessag
 }
 
 export async function fetchRegistry(rawIo: RawIo, opts: RegistryOptions): Promise<RegistryFetch> {
+  if (!RE_REPO.test(opts.registryRepo)) {
+    return { ok: false, reason: 'registry.shape', error: msg('registry.repoBad', opts.registryRepo), attempts: [] };
+  }
   const urls = buildHopUrls({
     repo: opts.registryRepo,
     ref: REGISTRY_BRANCH,
