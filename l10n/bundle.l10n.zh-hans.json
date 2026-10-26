@@ -166,5 +166,6 @@
   "apply.fileMissing": "此编辑器版本未携带槽位文件 {0}，该槽位保留官方原声。",
   "ui.status.missingFiles": "本编辑器版本未携带、槽位保留官方原声的文件：{0}",
   "registry.entryLanguage": "索引条目 {0} 的 language 非法。",
-  "registry.entryCategories": "索引条目 {0} 的 categories 非法。"
+  "registry.entryCategories": "索引条目 {0} 的 categories 非法。",
+  "install.slotReserved": "槽位 {0} 指向保留文件 {1}，拒绝安装。"
 }

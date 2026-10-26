@@ -35,6 +35,13 @@ const RE_COMMIT = /^[0-9a-f]{40}$/;
 export const DIRECT_DEFAULT_PACK_PATH = 'pack';
 export const DIRECT_DEFAULT_BRANCH = 'main';
 const ORIGIN_NAME = '.vir-origin.json';
+// Names the installer itself writes into the temp pack; a slot pointing at
+// one of them would collide during download, so they are reserved.
+const RESERVED_SLOT_TARGETS: ReadonlyArray<string> = [
+  PACK_MANIFEST_NAME,
+  'SOURCE.txt',
+  ORIGIN_NAME,
+];
 const INSTALLING_DIR_NAME = 'installing';
 const OLD_TMP_SUFFIX = '.vir-old';
 
@@ -290,11 +297,17 @@ export async function installPack(
   }
 
   // Download gates before any transfer: every slot path must pass the pack
-  // path contract here, not after the bytes arrive.
+  // path contract here, not after the bytes arrive; and none may point at
+  // the installer reserved names, where a download would overwrite the
+  // manifest, the source note, or the origin record.
   for (const key of Object.keys(manifest.slots)) {
-    const unsafe = checkPathSafety(manifest.slots[key]);
+    const rel = manifest.slots[key];
+    const unsafe = checkPathSafety(rel);
     if (unsafe) {
       return fail(msg('install.slotUnsafe', key));
+    }
+    if (RESERVED_SLOT_TARGETS.includes(rel)) {
+      return fail(msg('install.slotReserved', key, rel));
     }
   }
 

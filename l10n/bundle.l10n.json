@@ -166,5 +166,6 @@
   "apply.fileMissing": "Slot file {0} is not shipped by this editor build; that slot keeps the official sound.",
   "ui.status.missingFiles": "Not shipped by this editor build, those slots keep official sounds: {0}",
   "registry.entryLanguage": "Index entry {0} has a bad language tag.",
-  "registry.entryCategories": "Index entry {0} has a bad categories list."
+  "registry.entryCategories": "Index entry {0} has a bad categories list.",
+  "install.slotReserved": "Slot {0} points at the reserved file {1}; refusing to install."
 }

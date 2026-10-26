@@ -140,6 +140,18 @@ test('a slot path escaping the pack root aborts before any download', async () =
   assert.equal(calls.filter((u) => u.endsWith('.wav')).length, 0);
 });
 
+test('a slot pointing at an installer reserved name aborts', async () => {
+  const root = makeTempRoot();
+  stageRemote(root, { slots: { error: 'manifest.json' } });
+  const { io } = repoIo(path.join(root, 'remote'));
+  const r = await installPack(io, LOC, optsFor(root, io), EXPECT);
+  assert.equal(r.status, 'failed');
+  if (r.status === 'failed') {
+    assert.equal(r.error.key, 'install.slotReserved');
+  }
+  assert.equal(fs.existsSync(path.join(root, 'storage', 'packs', 'demo-pack')), false);
+});
+
 test('a pack whose audio is garbage is rejected whole', async () => {
   const root = makeTempRoot();
   stageRemote(root);
