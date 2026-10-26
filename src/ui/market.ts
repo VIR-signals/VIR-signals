@@ -23,6 +23,7 @@ import {
 } from '../engine/net-fetch';
 import { RegistryEntry, displayName, fetchRegistry } from '../engine/registry-client';
 import {
+  DIRECT_DEFAULT_BRANCH,
   fetchPreviewAudio,
   InstallOutcome,
   installPack,
@@ -247,7 +248,7 @@ async function directInstallFlow(
   }
   const head = await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: t('ui.market.resolving') },
-    () => resolveBranchHead(httpsRawIo, parsed.repo, 'main', mirrorPrefixCfg())
+    () => resolveBranchHead(httpsRawIo, parsed.repo, DIRECT_DEFAULT_BRANCH, mirrorPrefixCfg())
   );
   if (!head.ok) {
     await vscode.window.showErrorMessage(render(head.error) + '\n' + attemptsText({ status: 'failed', error: head.error, attempts: head.attempts }));
