@@ -130,7 +130,7 @@ async function applyFlow(
     ...r.report.warnings.map(render),
     ...Object.keys(r.report.disabled).map((k) => `${k}: ${render(r.report.disabled[k])}`),
   ];
-  const body = `${t('ui.apply.done', pack.name, r.report.replaced.length, r.report.baseline.length)} ${t('ui.apply.restartHint')}\n${t('ui.apply.switchQuestion')}`;
+  const body = `${t('ui.apply.done', pack.name, r.report.replaced.length, r.report.baseline.length)}\n${t('ui.apply.switchQuestion')}`;
   const switchAll = t('ui.apply.switchAll');
   const switchPack = t('ui.apply.switchPack');
   const pick =
@@ -146,6 +146,11 @@ async function applyFlow(
         : t('ui.switchMode.donePack', sw.on, sw.off);
     await vscode.window.showInformationMessage(note);
   }
+  // The restart demand rides its own notification, deliberately the last
+  // word of the flow: a sentence glued to the replacement stats never
+  // survives a glance, and only a full editor restart plays every replaced
+  // file.
+  await vscode.window.showWarningMessage(t('ui.apply.restartHint'));
 }
 
 async function restoreFlow(ctx: VirUiContext, statusBar: vscode.StatusBarItem): Promise<void> {
