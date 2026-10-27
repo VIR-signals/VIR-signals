@@ -16,6 +16,12 @@ Uninstalling the extension puts the official sound files back automatically. The
 
 A pack is a folder with a `manifest.json` and audio files (WAV or MP3). The `slots` object maps slot names to audio files inside the pack. A pack does not have to cover all slots: untouched slots keep the official sound. Use **VIR: Open Voice Packs Folder** to create and open the pack folder, drop packs in, then **VIR: Rescan Voice Packs** to pick them up.
 
+## Network access
+
+The pack picker fetches the registry index from GitHub: the direct raw URL first, then the jsDelivr mirror, then the mirror prefix from `vir.packMirrorTemplate` if one is set. Pack downloads always come from the pack author's own repository, pinned to the commit recorded in the registry entry. Each hop has its own timeout, and a failed index fetch never blocks the list: local packs and the direct install entry still show.
+
+All requests follow the editor's proxy configuration (`http.proxy`). On networks where GitHub stays unreachable, set `http.proxy` in VS Code, or set `vir.packMirrorTemplate` to a mirror prefix such as `https://ghproxy.net/`. A mirror is a third party relay you choose to trust; downloads pinned to a commit hash come out byte identical through it, while the branch addressed index may lag behind by the mirror's cache window.
+
 ## Signal switches
 
 Replacing files does not turn signals on. The editor plays a signal only when its accessibility signal setting is on. The first run notice points at picking a pack, because signal switches only matter once a pack is applied. After every successful apply the result notification offers the two switch modes: **Enable All** (all editor signal settings on; untouched events keep the official sounds) or **Match the Pack** (covered settings on, everything else off). **VIR: Enable All Signals** does the enable-all at any time — a pure editor settings operation, the active pack is irrelevant — and **VIR: Restore Signal Toggles** puts those settings back the way they were.
@@ -41,6 +47,12 @@ Replacing files does not turn signals on. The editor plays a signal only when it
 - `vir.enabled`: master switch. Off means the extension stops intervening and leaves replaced files as they are.
 - `vir.activePack`: the active pack id, written by the selection command.
 - `vir.editorInstallPath`: manual override of the editor install location, for installs automatic detection cannot resolve.
+- `vir.packRegistryRepo`: the GitHub repository used as the pack index, in `owner/repo` form.
+- `vir.packMirrorTemplate`: optional URL prefix prepended to direct GitHub URLs as an extra mirror hop, for networks where GitHub is unreachable.
+
+## Unsupported installations
+
+The extension detects and rejects these with a clear message instead of guessing: the Microsoft Store edition, Windows system level installs (writes would land under `C:\Program Files`), macOS (modifying the app bundle breaks its code signature), Linux installs owned by root (deb, rpm, `/opt`), and read only package formats (snap, flatpak — no elevation helps there). Use a user level install of the official VS Code.
 
 ## Restore and uninstall
 
