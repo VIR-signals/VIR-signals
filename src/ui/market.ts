@@ -1,17 +1,17 @@
 // Market panel (spec 4.2): the pack picker in index form. Local packs and
 // registry entries share one list, a standing direct install entry sits on
 // top, registry picks open a three action follow up (preview, install or
-// update, cancel), and the audition player is a webview that deletes its
-// temp file the moment the panel closes. The engine stays vscode free;
-// every sentence lives in the language bundles.
+// update, cancel), and the audition player is a webview panel whose whole
+// pack download is removed the moment the panel closes. The engine stays
+// vscode free; every sentence lives in the language bundles.
 import * as vscode from 'vscode';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { render, t } from './render';
+import { attemptsText, render, t } from './render';
 import { VirUiContext } from './extension-context';
+import { openPreviewPanel } from './preview-panel';
 import { localPackListing } from './pack-source';
 import { PackInfo, compareVersion, findPackById, parseVersion } from '../engine/pack-reader';
 import { packsDirFor } from '../engine/paths';
+import { loadState } from '../engine/ledger';
 import { SLOTS, affectedEventsForSlots } from '../engine/slot-table';
 import { slotNamesOfKeys } from './market-format';
 import {
@@ -24,8 +24,6 @@ import {
 import { RegistryEntry, displayName, fetchRegistry } from '../engine/registry-client';
 import {
   DIRECT_DEFAULT_BRANCH,
-  fetchPreviewAudio,
-  InstallOutcome,
   installPack,
   parseDirectInput,
   resolveBranchHead,
@@ -101,54 +99,16 @@ function entryDescription(entry: RegistryEntry, slotKeys: ReadonlyArray<string> 
   return `v${entry.version} · ${entry.language}${cats === '' ? '' : ' · ' + cats} · ${coverageLine(slotKeys)}`;
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string)
-  );
-}
-
-function attemptsText(outcome: Extract<InstallOutcome, { status: 'failed' }>): string {
-  const lines = outcome.attempts.slice(0, 6).map((a) => render(a.detail));
-  return lines.length > 0 ? lines.join('\n') : render(outcome.error);
-}
-
-// The audition player: one webview, one audio tag, temp file deleted on
-// panel close. Nothing is written into the packs folder.
-async function previewEntry(ctx: VirUiContext, entry: RegistryEntry): Promise<void> {
-  const tmpDir = path.join(ctx.storageDir, 'preview');
-  await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Notification, title: t('ui.market.previewFetching') },
-    async () => {
-      const probe = path.join(tmpDir, entry.id + '.audio');
-      const r = await fetchPreviewAudio(
-        httpsRawIo,
-        { repo: entry.repo, commit: entry.commit, packPath: entry.packPath },
-        mirrorPrefixCfg(),
-        probe
-      );
-      if (!r.ok) {
-        await vscode.window.showErrorMessage(attemptsText({ status: 'failed', error: r.error, attempts: r.attempts }));
-        return;
-      }
-      const ext = path.extname(r.rel) === '.mp3' ? '.mp3' : '.wav';
-      const finalFile = path.join(tmpDir, entry.id + ext);
-      fs.renameSync(probe, finalFile);
-      const title = escapeHtml(displayName(entry, vscode.env.language));
-      const panel = vscode.window.createWebviewPanel(
-        'vir.preview',
-        title,
-        vscode.ViewColumn.Beside,
-        { retainContextWhenHidden: false }
-      );
-      const src = panel.webview.asWebviewUri(vscode.Uri.file(finalFile));
-      panel.webview.html =
-        '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' +
-        'body{display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif}' +
-        '</style></head><body><audio controls autoplay src="' + String(src) + '"></audio></body></html>';
-      panel.onDidDispose(() => {
-        fs.rmSync(finalFile, { force: true });
-      });
-    }
+// The audition player: one webview panel per pack over a whole pack
+// download that lives in the preview folder, removed when the panel
+// closes. Nothing is written into the packs folder.
+async function previewEntry(
+  ctx: VirUiContext,
+  onLocalChoice: (choice: { pack: PackInfo } | { none: true }) => Promise<void>,
+  entry: RegistryEntry
+): Promise<void> {
+  await openPreviewPanel(ctx, entry, mirrorPrefixCfg(), () =>
+    installAndOffer(ctx, onLocalChoice, entry, entry.repo, entry.commit, entry.packPath)
   );
 }
 
@@ -189,12 +149,14 @@ async function installAndOffer(
       : outcome.status === 'updated'
         ? t('ui.market.updateDone', outcome.pack.version)
         : t('ui.market.uptoDate', outcome.localVersion);
+  // Picking the pack already said "use it": the install lands and the choice
+  // flow runs right away, no middle confirmation. Install time conflicts are
+  // informational (the pack wins), so they ride along instead of gating.
   const conflictLines = outcome.status === 'uptoDate' ? [] : outcome.warnings.map(render);
-  const body = conflictLines.length > 0 ? note + '\n' + conflictLines.join('\n') : note;
-  const apply = t('ui.market.enableAndApply');
-  const pick = await vscode.window.showInformationMessage(body, apply);
-  if (pick !== apply) {
-    return;
+  if (conflictLines.length > 0) {
+    void vscode.window.showWarningMessage(note + '\n' + conflictLines.join('\n'));
+  } else {
+    void vscode.window.showInformationMessage(note);
   }
   const packId =
     entry !== undefined
@@ -230,7 +192,7 @@ async function entryActionFlow(
     return;
   }
   if (pick.action === 'preview') {
-    await previewEntry(ctx, entry);
+    await previewEntry(ctx, onLocalChoice, entry);
     return;
   }
   await installAndOffer(ctx, onLocalChoice, entry, entry.repo, entry.commit, entry.packPath);
@@ -254,7 +216,7 @@ async function directInstallFlow(
     () => resolveBranchHead(httpsRawIo, parsed.repo, DIRECT_DEFAULT_BRANCH, mirrorPrefixCfg())
   );
   if (!head.ok) {
-    await vscode.window.showErrorMessage(render(head.error) + '\n' + attemptsText({ status: 'failed', error: head.error, attempts: head.attempts }));
+    await vscode.window.showErrorMessage(render(head.error) + '\n' + attemptsText({ error: head.error, attempts: head.attempts }));
     return;
   }
   await vscode.window.showInformationMessage(t('ui.market.resolved', head.sha.slice(0, 8)));
@@ -279,6 +241,11 @@ export async function marketSelectFlow(
     ? await prefetchManifestSlots(registry.entries, mirrorPrefixCfg())
     : new Map<string, ReadonlyArray<string>>();
 
+  // The check mark means exactly one thing: this is what is in effect now.
+  // Installed-and-current carries no mark (the local list shows that), a
+  // newer remote build carries the up arrow, and an empty selection checks
+  // the keep-official row.
+  const activeId = loadState(ctx.storageDir).activePackId;
   const items: MarketPickItem[] = [];
   if (!registry.ok) {
     // Per source failure reasons ride the detail line: a silent generic
@@ -288,21 +255,24 @@ export async function marketSelectFlow(
       detail:
         render(registry.error) +
         '\n' +
-        attemptsText({ status: 'failed', error: registry.error, attempts: registry.attempts }),
+        attemptsText({ error: registry.error, attempts: registry.attempts }),
       indexError: true,
     });
   }
   items.push({ label: '$(globe)' + ' ' + t('ui.market.directInstall'), direct: true, detail: t('ui.market.directDetail') });
   if (registry.ok) {
-    for (const entry of registry.entries) {
-      const local = byId.get(entry.id);
-      let mark = '    ';
-      if (local !== undefined) {
-        const remoteTriple = parseVersion(entry.version);
-        const newer = remoteTriple !== undefined && compareVersion(remoteTriple, local.versionTriple) > 0;
-        mark = newer ? '↑ ' : '✓ ';
-      }
-      items.push({
+  for (const entry of registry.entries) {
+    // Index rows are views of remote entries, never the thing in effect: a
+    // local pack and an index entry can share one id (the bundled demo
+    // does), so checking by id here would light two rows at once.
+    const local = byId.get(entry.id);
+    let mark = '';
+    if (local !== undefined) {
+      const remoteTriple = parseVersion(entry.version);
+      const newer = remoteTriple !== undefined && compareVersion(remoteTriple, local.versionTriple) > 0;
+      mark = newer ? '↑ ' : '';
+    }
+    items.push({
         label: mark + displayName(entry, vscode.env.language),
         description: entryDescription(entry, manifests.get(entry.id)),
         detail: `${entry.author} · ${entry.repo}`,
@@ -312,13 +282,13 @@ export async function marketSelectFlow(
   }
   for (const pack of listing.good) {
     items.push({
-      label: '$(audio-file)' + ' ' + pack.name,
+      label: (pack.id === activeId ? '✓ ' : '') + '$(audio-file)' + ' ' + pack.name,
       description: pack.id,
       detail: t('ui.market.localDetail', pack.version),
       localPack: pack,
     });
   }
-  items.push({ label: t('ui.select.none'), none: true });
+  items.push({ label: (activeId === '' ? '✓ ' : '') + t('ui.select.none'), none: true });
   qp.busy = false;
   qp.items = items;
 

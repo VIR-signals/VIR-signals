@@ -268,6 +268,24 @@ function findLocal(packsDir: string, id: string): LocalState | undefined {
   return undefined;
 }
 
+// Download gates shared by the installer and the audition download: every
+// slot path must pass the pack path contract before any transfer starts,
+// and none may point at the installer reserved names, where a download
+// would overwrite the manifest, the source note, or the origin record.
+export function gateManifestSlots(slots: Record<string, string>): VirMessage | undefined {
+  for (const key of Object.keys(slots)) {
+    const rel = slots[key];
+    const unsafe = checkPathSafety(rel);
+    if (unsafe) {
+      return msg('install.slotUnsafe', key);
+    }
+    if (RESERVED_SLOT_TARGETS.includes(rel)) {
+      return msg('install.slotReserved', key, rel);
+    }
+  }
+  return undefined;
+}
+
 export async function installPack(
   rawIo: RawIo,
   loc: PackLocation,
@@ -300,15 +318,9 @@ export async function installPack(
   // path contract here, not after the bytes arrive; and none may point at
   // the installer reserved names, where a download would overwrite the
   // manifest, the source note, or the origin record.
-  for (const key of Object.keys(manifest.slots)) {
-    const rel = manifest.slots[key];
-    const unsafe = checkPathSafety(rel);
-    if (unsafe) {
-      return fail(msg('install.slotUnsafe', key));
-    }
-    if (RESERVED_SLOT_TARGETS.includes(rel)) {
-      return fail(msg('install.slotReserved', key, rel));
-    }
+  const gate = gateManifestSlots(manifest.slots);
+  if (gate !== undefined) {
+    return fail(gate);
   }
 
   const packsDir = path.join(opts.storageDir, PACKS_DIR_NAME);
@@ -421,31 +433,87 @@ export async function installPack(
   }
 }
 
-// Preview (audition) helper: fetch the manifest, pick the error slot or the
-// first one, download that one audio file into the caller provided file.
-export async function fetchPreviewAudio(
+// Whole-pack audition download: fetch the manifest and every slot audio
+// into the caller's preview folder OUTSIDE the packs folder, then validate
+// the pack exactly like the installer would, so what the audition panel
+// plays is what an install would land. SOURCE.txt is provenance for
+// installed packs and is not fetched here. On any failure the folder is
+// removed again; on success the caller owns the cleanup.
+export type PreviewOutcome =
+  | { ok: true; pack: PackInfo }
+  | { ok: false; error: VirMessage; attempts: HopAttempt[] };
+
+export async function downloadPackForPreview(
   rawIo: RawIo,
   loc: PackLocation,
   mirrorPrefix: string,
-  targetFile: string,
+  dir: string,
   signal?: AbortSignal
-): Promise<{ ok: true; slot: string; rel: string } | { ok: false; error: VirMessage; attempts: HopAttempt[] }> {
+): Promise<PreviewOutcome> {
   const sig = signal ?? new AbortController().signal;
-  const m = await fetchRemoteManifest(rawIo, loc, mirrorPrefix, sig);
-  if (!m.ok) {
-    return { ok: false, error: m.error, attempts: m.attempts };
+  // Clear any stale folder a crashed panel left behind before anything
+  // else, so even an early failure (manifest unreachable, gate rejection)
+  // leaves no leftover behind; the fresh folder only appears once the
+  // gates have passed.
+  fs.rmSync(dir, { recursive: true, force: true });
+  const manifestR = await fetchRemoteManifest(rawIo, loc, mirrorPrefix, sig);
+  if (!manifestR.ok) {
+    return { ok: false, error: manifestR.error, attempts: manifestR.attempts };
   }
-  const keys = Object.keys(m.manifest.slots);
-  if (keys.length === 0) {
-    return { ok: false, error: msg('install.manifestSlots'), attempts: [] };
+  const manifest = manifestR.manifest;
+  const gate = gateManifestSlots(manifest.slots);
+  if (gate !== undefined) {
+    return { ok: false, error: gate, attempts: [] };
   }
-  const key = m.manifest.slots.error !== undefined ? 'error' : keys[0];
-  const rel = m.manifest.slots[key];
-  const r = await fetchAt(rawIo, loc, rel, AUDIO_LIMIT_BYTES, mirrorPrefix, sig);
-  if (!r.ok) {
-    return { ok: false, error: msg('install.fileFailed', rel), attempts: r.attempts };
+  fs.mkdirSync(dir, { recursive: true });
+  let keep = false;
+  try {
+    writeUnder(dir, PACK_MANIFEST_NAME, manifest.raw);
+    const jobs: Array<{ urls: ReadonlyArray<string>; limitBytes: number; name: string }> = [];
+    const rels: Record<string, string> = {};
+    for (const key of Object.keys(manifest.slots)) {
+      rels[manifest.slots[key]] = manifest.slots[key];
+    }
+    for (const rel of Object.keys(rels)) {
+      jobs.push({
+        name: rel,
+        urls: buildHopUrls({
+          repo: loc.repo,
+          ref: loc.commit,
+          filePath: loc.packPath + '/' + rel,
+          mirrorPrefix,
+        }),
+        limitBytes: AUDIO_LIMIT_BYTES,
+      });
+    }
+    const results = await fetchFiles(rawIo, jobs, {
+      timeoutMs: HOP_TIMEOUT_MS,
+      deadlineMs: PACK_DEADLINE_MS,
+      concurrency: PACK_CONCURRENCY,
+      signal: sig,
+    });
+    for (const r of results) {
+      if (!r.ok) {
+        return { ok: false, error: msg('install.fileFailed', r.name), attempts: r.attempts };
+      }
+      writeUnder(dir, r.name, r.data);
+    }
+    const read = readPack(dir);
+    if (!read.ok) {
+      return { ok: false, error: read.error, attempts: [] };
+    }
+    if (Object.keys(read.pack.disabled).length > 0) {
+      return {
+        ok: false,
+        error: msg('install.disabledSlots', Object.keys(read.pack.disabled).join(',')),
+        attempts: [],
+      };
+    }
+    keep = true;
+    return { ok: true, pack: read.pack };
+  } finally {
+    if (!keep) {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   }
-  fs.mkdirSync(path.dirname(targetFile), { recursive: true });
-  fs.writeFileSync(targetFile, r.data);
-  return { ok: true, slot: key, rel };
 }

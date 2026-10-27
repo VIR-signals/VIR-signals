@@ -369,8 +369,12 @@ async function cmdIdentify(ctx: VirUiContext): Promise<void> {
 }
 
 export function refreshStatusBar(item: vscode.StatusBarItem, ctx: VirUiContext): void {
-  const packId = activePackId(ctx);
-  item.text = packId ? `$(bell) ${packId.slice(0, 14)}` : '$(bell)';
+  // The applied pack name, not the raw id: the same pack can show under
+  // different labels (index entry name versus manifest name), so the bar
+  // must echo the name that the picker's check marked as in effect.
+  const state = loadState(ctx.storageDir);
+  const label = state.applied?.packName ?? state.activePackId;
+  item.text = label ? `$(bell) ${label.slice(0, 14)}` : '$(bell)';
 }
 
 export function registerCommands(ctx: VirUiContext): Array<vscode.Disposable> {

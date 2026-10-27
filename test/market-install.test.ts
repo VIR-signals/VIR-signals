@@ -1,13 +1,13 @@
 // Market installer tests with a fake repository network: consistency gates,
 // download path safety, disabled slot rejection, three step update with
 // rollback, version triple branches, direct install parsing, branch head
-// resolution, conflict warnings, and the preview fetch.
+// resolution, and conflict warnings. The audition download has its own
+// suite in preview-panel.test.ts.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import * as path from 'node:path';
 import {
-  fetchPreviewAudio,
   installPack,
   parseDirectInput,
   resolveBranchHead,
@@ -395,30 +395,4 @@ test('installed audio requests always reference the SHA, never the branch', asyn
   const audioCalls = calls.filter((u) => u.endsWith('.wav'));
   assert.ok(audioCalls.length > 0);
   assert.ok(audioCalls.every((u) => u.includes('/' + SHA + '/')));
-});
-
-test('preview fetch lands outside the packs folder and prefers the error slot', async () => {
-  const root = makeTempRoot();
-  stageRemote(root);
-  const { io } = repoIo(path.join(root, 'remote'));
-  const target = path.join(root, 'storage', 'preview', 'demo-pack.wav');
-  const r = await fetchPreviewAudio(io, LOC, '', target);
-  assert.ok(r.ok);
-  if (r.ok) {
-    assert.equal(r.slot, 'error');
-    assert.equal(r.rel, 'sounds/e.wav');
-  }
-  assert.ok(fs.existsSync(target));
-  assert.equal(fs.existsSync(path.join(root, 'storage', 'packs')), false);
-});
-
-test('preview falls back to the first slot when error is absent', async () => {
-  const root = makeTempRoot();
-  stageRemote(root, { slots: { save: 'sounds/s.wav' } });
-  const { io } = repoIo(path.join(root, 'remote'));
-  const r = await fetchPreviewAudio(io, LOC, '', path.join(root, 'p.wav'));
-  assert.ok(r.ok);
-  if (r.ok) {
-    assert.equal(r.slot, 'save');
-  }
 });

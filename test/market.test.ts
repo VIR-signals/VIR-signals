@@ -71,7 +71,7 @@ test('the registry setting defaults exist in the manifest', async () => {
 // under plain node, and the production https io is swapped on the net-fetch
 // module object because the panel reads that binding at call time. Every
 // URL the flows can build is routed to a literal buffer, so the picker, the
-// installer and the apply button all run against real disk and real parsing
+// installer and the direct apply all run against real disk and real parsing
 // with deterministic inputs.
 
 import * as fs from 'node:fs';
@@ -350,16 +350,18 @@ async function runEntryInstall(storageDir: string): Promise<PanelChoice[]> {
 // The one notification that carries buttons is the apply offer; earlier
 // notices such as the resolved commit note carry none.
 function applyOffer(): InfoCall {
-  const call = uiState.info.find((c) => c.buttons.length > 0);
-  assert.ok(call !== undefined, 'no notification with buttons was shown');
-  return call;
+  // The install notice is the last info of the flow and now carries no
+  // buttons: picking the pack already said "use it" (the direct install
+  // flow shows a resolved commit notice first).
+  assert.ok(uiState.info.length > 0, 'no notification was shown');
+  return uiState.info[uiState.info.length - 1];
 }
 
 function en(key: string, args: ReadonlyArray<string | number>): string {
   return lookup(bundle('bundle.l10n.json'), key, args);
 }
 
-test('an up to date install still offers the apply button and applies the pack', async () => {
+test('an up to date install applies the pack right away without a middle confirm', async () => {
   const root = makeTempRoot();
   try {
     resetUi();
@@ -375,7 +377,7 @@ test('an up to date install still offers the apply button and applies the pack',
     }
     const offer = applyOffer();
     assert.equal(offer.message, en('ui.market.uptoDate', ['1.0.0']));
-    assert.deepEqual(offer.buttons, [en('ui.market.enableAndApply', [])]);
+    assert.deepEqual(offer.buttons, []);
     assert.equal(choices.length, 1);
     assert.ok('pack' in choices[0]);
     if ('pack' in choices[0]) {
@@ -388,7 +390,7 @@ test('an up to date install still offers the apply button and applies the pack',
   }
 });
 
-test('a fresh entry install keeps offering the apply button and passes the pack', async () => {
+test('a fresh entry install applies the pack right away and passes the pack', async () => {
   const root = makeTempRoot();
   try {
     resetUi();
@@ -403,7 +405,7 @@ test('a fresh entry install keeps offering the apply button and passes the pack'
     }
     const offer = applyOffer();
     assert.equal(offer.message, en('ui.market.installDone', ['Demo Pack']));
-    assert.deepEqual(offer.buttons, [en('ui.market.enableAndApply', [])]);
+    assert.deepEqual(offer.buttons, []);
     assert.equal(choices.length, 1);
     assert.ok('pack' in choices[0]);
     if ('pack' in choices[0]) {
@@ -416,7 +418,7 @@ test('a fresh entry install keeps offering the apply button and passes the pack'
   }
 });
 
-test('a direct update keeps offering the apply button and applies the new version', async () => {
+test('a direct update applies the new version right away', async () => {
   const root = makeTempRoot();
   try {
     resetUi();
@@ -432,7 +434,7 @@ test('a direct update keeps offering the apply button and applies the new versio
     }
     const offer = applyOffer();
     assert.equal(offer.message, en('ui.market.updateDone', ['2.0.0']));
-    assert.deepEqual(offer.buttons, [en('ui.market.enableAndApply', [])]);
+    assert.deepEqual(offer.buttons, []);
     assert.equal(choices.length, 1);
     assert.ok('pack' in choices[0]);
     if ('pack' in choices[0]) {
@@ -446,7 +448,7 @@ test('a direct update keeps offering the apply button and applies the new versio
   }
 });
 
-test('a pack folder that vanished before the click reports apply missing and applies nothing', async () => {
+test('a pack folder that vanishes between install and apply reports apply missing and applies nothing', async () => {
   const root = makeTempRoot();
   try {
     resetUi();
@@ -454,10 +456,10 @@ test('a pack folder that vanished before the click reports apply missing and app
     const storage = path.join(root, 'storage');
     seedLocalPack(storage, '1.0.0');
     uiState.onInfo = (call) => {
-      if (call.buttons.length === 0) {
-        return undefined;
-      }
+      // The install notice now carries no buttons; it fires right before the
+      // apply lookup, which is the moment the folder can still vanish.
       fs.rmSync(path.join(storage, 'packs', 'demo-pack'), { recursive: true, force: true });
+      return undefined;
       return call.buttons[0];
     };
     const restoreIo = swapIo(marketRoutes('1.0.0'));
@@ -475,11 +477,11 @@ test('a pack folder that vanished before the click reports apply missing and app
   }
 });
 
-test('both bundles carry the apply button and the missing pack notice', () => {
+test('no bundle carries the dead apply button while the missing pack notice stays', () => {
   const en_ = bundle('bundle.l10n.json');
   const zh = bundle('bundle.l10n.zh-cn.json');
   for (const b of [en_, zh]) {
-    assert.ok(typeof b['ui.market.enableAndApply'] === 'string');
+    assert.equal(b['ui.market.enableAndApply'], undefined);
     assert.ok(b['ui.market.applyMissing'].includes('{0}'));
   }
 });
