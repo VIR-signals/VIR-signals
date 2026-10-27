@@ -46,7 +46,7 @@ test('save then load round trips the whole state', () => {
 test('corrupt state file fails loudly', () => {
   const root = makeTempRoot();
   try {
-    fs.writeFileSync(statePath(root), '{oops');
+    fs.writeFileSync(statePath(root), '{broken');
     assert.throws(() => loadState(root));
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
