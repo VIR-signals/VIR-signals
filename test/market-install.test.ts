@@ -266,6 +266,27 @@ test('same or older remote version reports up to date without touching disk', as
   assert.equal(r2.status, 'uptoDate');
 });
 
+test('an up to date outcome names the pack id and carries the local version', async () => {
+  const root = makeTempRoot();
+  stageRemote(root, { version: '1.0.0' });
+  installLocal(root, '1.0.0');
+  const { io } = repoIo(path.join(root, 'remote'));
+  const r = await installPack(io, LOC, optsFor(root, io), EXPECT);
+  assert.equal(r.status, 'uptoDate');
+  if (r.status === 'uptoDate') {
+    assert.equal(r.packId, 'demo-pack');
+    assert.equal(r.localVersion, '1.0.0');
+  }
+  stageRemote(root, { version: '1.9.0' });
+  installLocal(root, '1.10.0');
+  const r2 = await installPack(io, LOC, optsFor(root, io), { ...EXPECT, version: '1.9.0' });
+  assert.equal(r2.status, 'uptoDate');
+  if (r2.status === 'uptoDate') {
+    assert.equal(r2.packId, 'demo-pack');
+    assert.equal(r2.localVersion, '1.10.0');
+  }
+});
+
 test('a same id pack under a hand made folder name refuses to install', async () => {
   const root = makeTempRoot();
   stageRemote(root);

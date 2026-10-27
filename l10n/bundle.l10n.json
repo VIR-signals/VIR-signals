@@ -168,5 +168,6 @@
   "registry.entryLanguage": "Index entry {0} has a bad language tag.",
   "registry.entryCategories": "Index entry {0} has a bad categories list.",
   "install.slotReserved": "Slot {0} points at the reserved file {1}; refusing to install.",
-  "registry.repoBad": "The configured registry repository is not owner/name: {0}"
+  "registry.repoBad": "The configured registry repository is not owner/name: {0}",
+  "ui.market.applyMissing": "The pack folder disappeared before it could be applied: {0}"
 }

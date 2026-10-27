@@ -62,7 +62,7 @@ export interface InstallOptions {
 export type InstallOutcome =
   | { status: 'installed'; pack: PackInfo; warnings: VirMessage[] }
   | { status: 'updated'; pack: PackInfo; warnings: VirMessage[] }
-  | { status: 'uptoDate'; localVersion: string }
+  | { status: 'uptoDate'; packId: string; localVersion: string }
   | { status: 'failed'; error: VirMessage; attempts: HopAttempt[] };
 
 interface RemoteManifest {
@@ -322,7 +322,7 @@ export async function installPack(
       return fail(msg('install.manualDirConflict', manifest.id, path.basename(local.dir)));
     }
     if (compareVersion(remoteTriple, local.triple) <= 0) {
-      return { status: 'uptoDate', localVersion: local.version };
+      return { status: 'uptoDate', packId: manifest.id, localVersion: local.version };
     }
   }
 

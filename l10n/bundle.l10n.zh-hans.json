@@ -168,5 +168,6 @@
   "registry.entryLanguage": "索引条目 {0} 的 language 非法。",
   "registry.entryCategories": "索引条目 {0} 的 categories 非法。",
   "install.slotReserved": "槽位 {0} 指向保留文件 {1}，拒绝安装。",
-  "registry.repoBad": "配置的索引仓不是 owner/name 形态：{0}"
+  "registry.repoBad": "配置的索引仓不是 owner/name 形态：{0}",
+  "ui.market.applyMissing": "语音包文件夹在启用前已不存在：{0}"
 }

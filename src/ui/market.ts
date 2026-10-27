@@ -183,28 +183,31 @@ async function installAndOffer(
     await vscode.window.showErrorMessage(render(outcome.error) + '\n' + attemptsText(outcome));
     return;
   }
-  if (outcome.status === 'uptoDate') {
-    await vscode.window.showInformationMessage(t('ui.market.uptoDate', outcome.localVersion));
-    return;
-  }
   const note =
     outcome.status === 'installed'
       ? t('ui.market.installDone', outcome.pack.name)
-      : t('ui.market.updateDone', outcome.pack.version);
-  const conflictLines = outcome.warnings.map(render);
+      : outcome.status === 'updated'
+        ? t('ui.market.updateDone', outcome.pack.version)
+        : t('ui.market.uptoDate', outcome.localVersion);
+  const conflictLines = outcome.status === 'uptoDate' ? [] : outcome.warnings.map(render);
   const body = conflictLines.length > 0 ? note + '\n' + conflictLines.join('\n') : note;
   const apply = t('ui.market.enableAndApply');
   const pick = await vscode.window.showInformationMessage(body, apply);
-  if (pick === apply) {
-    const pack = findPackById(packsDirFor(ctx.storageDir), (entry ? entry.id : readInstalledId(outcome)));
-    if (pack) {
-      await onLocalChoice({ pack });
-    }
+  if (pick !== apply) {
+    return;
   }
-}
-
-function readInstalledId(outcome: Extract<InstallOutcome, { status: 'installed' | 'updated' }>): string {
-  return outcome.pack.id;
+  const packId =
+    entry !== undefined
+      ? entry.id
+      : outcome.status === 'uptoDate'
+        ? outcome.packId
+        : outcome.pack.id;
+  const pack = findPackById(packsDirFor(ctx.storageDir), packId);
+  if (pack === undefined) {
+    await vscode.window.showErrorMessage(t('ui.market.applyMissing', packId));
+    return;
+  }
+  await onLocalChoice({ pack });
 }
 
 async function entryActionFlow(
