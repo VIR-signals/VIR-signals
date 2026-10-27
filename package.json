@@ -79,21 +79,15 @@
       {
         "command": "vir.identify",
         "title": "%vir.cmd.identify.title%"
+      },
+      {
+        "command": "vir.toggleSwitch",
+        "title": "%vir.cmd.toggleSwitch.title%"
       }
     ],
     "configuration": {
       "title": "%vir.config.title%",
       "properties": {
-        "vir.enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "%vir.enabled.description%"
-        },
-        "vir.activePack": {
-          "type": "string",
-          "default": "",
-          "description": "%vir.activePack.description%"
-        },
         "vir.editorInstallPath": {
           "type": "string",
           "default": "",

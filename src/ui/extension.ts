@@ -2,15 +2,16 @@
 // pass: environment check, demo seeding, crash transaction notice, weekly
 // update relayout, and the two stage first run flow.
 import * as vscode from 'vscode';
-import { render, t } from './render';
+import { convergeNote, render, t } from './render';
 import { staleVerdict } from './localize';
 import { VirUiContext } from './extension-context';
 import { registerCommands } from './commands';
-import { locate } from '../engine/locate';
+import { locate, Located } from '../engine/locate';
 import { checkPlatform, defaultProbes } from '../engine/platform-gate';
 import { readPendingTx } from '../engine/replace';
 import { checkVersionDrift, relayoutAfterUpdate } from '../engine/relayout';
-import { loadState, saveState } from '../engine/ledger';
+import { expectedState, loadState, saveState } from '../engine/ledger';
+import { convergeToExpected } from '../engine/converge';
 import { backupDirFor, ensureBackup, snapshotState, writeUninstallSnapshot } from '../engine/backup';
 import { claimGuide } from './guide';
 import { seedDemoPack } from './demo-seed';
@@ -78,6 +79,48 @@ function manualInstallPath(): string {
   return vscode.workspace.getConfiguration().get<string>('vir.editorInstallPath') ?? '';
 }
 
+// T2: activation convergence. The expected state — the ledger switch plus
+// the selected pack — decides the direction before anything moves: expecting
+// native converges the site back to the official files (a switch turned off
+// in another window, or an editor update while the switch is off, both land
+// here and must stay native), expecting a pack keeps the update relayout
+// exactly as it was.
+async function convergeOnActivation(
+  ctx: VirUiContext,
+  located: Located
+): Promise<string | undefined> {
+  const st = loadState(ctx.storageDir);
+  const expected = expectedState(st.enabled, st.activePackId);
+  if (expected.kind === 'pack') {
+    const drift = checkVersionDrift(located, ctx.storageDir);
+    if (!drift.relayoutNeeded || !drift.reason) {
+      return undefined;
+    }
+    const r = relayoutAfterUpdate(located, ctx.storageDir, ctx.owner, ctx.extensionDir);
+    if (!r.ok) {
+      return render(r.error);
+    }
+    const parts = [render(drift.reason), t('ui.apply.restartHint')];
+    if (r.report.newFiles.length > 0) {
+      parts.push(`${t('ui.relayout.newFiles')}: ${r.report.newFiles.join(', ')}`);
+    }
+    if (r.report.vanishedFiles.length > 0) {
+      parts.push(`${t('ui.relayout.vanishedFiles')}: ${r.report.vanishedFiles.join(', ')}`);
+    }
+    return parts.join(' ');
+  }
+  const r = await convergeToExpected(
+    located, ctx.storageDir, ctx.owner, ctx.extensionDir, expected
+  );
+  if (!r.ok) {
+    return render(r.error);
+  }
+  if (r.action === 'none') {
+    return undefined;
+  }
+  return convergeNote(expected);
+}
+
 async function activationPass(ctx: VirUiContext): Promise<void> {
   const notes: string[] = [];
   let pendingTx = false;
@@ -103,21 +146,9 @@ async function activationPass(ctx: VirUiContext): Promise<void> {
     if (readPendingTx(located.located.mediaDir) !== undefined) {
       pendingTx = true;
     }
-    const drift = checkVersionDrift(located.located, ctx.storageDir);
-    if (drift.relayoutNeeded && drift.reason) {
-      const r = relayoutAfterUpdate(located.located, ctx.storageDir, ctx.owner, ctx.extensionDir);
-      if (r.ok) {
-        const parts = [render(drift.reason), t('ui.apply.restartHint')];
-        if (r.report.newFiles.length > 0) {
-          parts.push(`${t('ui.relayout.newFiles')}: ${r.report.newFiles.join(', ')}`);
-        }
-        if (r.report.vanishedFiles.length > 0) {
-          parts.push(`${t('ui.relayout.vanishedFiles')}: ${r.report.vanishedFiles.join(', ')}`);
-        }
-        notes.push(parts.join(' '));
-      } else {
-        notes.push(render(r.error));
-      }
+    const convNote = await convergeOnActivation(ctx, located.located);
+    if (convNote !== undefined) {
+      notes.push(convNote);
     }
     const state = loadState(ctx.storageDir);
     if (state.applied && snapshotState(ctx.extensionDir) !== 'ok') {

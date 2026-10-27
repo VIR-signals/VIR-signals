@@ -3,6 +3,7 @@
 // runtime bundle pick, not the platform l10n cache.
 import * as vscode from 'vscode';
 import { VirMessage } from '../engine/msg';
+import { ExpectedState } from '../engine/ledger';
 import { Bundle, bundleDirFrom, bundleFileNameFor, loadBundle, lookup } from './localize';
 
 let currentLanguage = '';
@@ -26,4 +27,12 @@ export function render(m: VirMessage): string {
 
 export function renderAll(ms: ReadonlyArray<VirMessage>): string[] {
   return ms.map(render);
+}
+
+// One sentence per convergence direction, shown after the switch command and
+// by activation convergence alike.
+export function convergeNote(expected: ExpectedState): string {
+  return expected.kind === 'native'
+    ? `${t('ui.switch.restoredNative')} ${t('ui.apply.restartHint')}`
+    : `${t('ui.switch.reapplied', expected.packId)} ${t('ui.apply.restartHint')}`;
 }

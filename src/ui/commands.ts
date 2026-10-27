@@ -1,7 +1,7 @@
 // Command handlers for the ten contributed commands plus the status bar
 // bell. Handlers are thin: validate, call the engine, render message keys.
 import * as vscode from 'vscode';
-import { render, t } from './render';
+import { convergeNote, render, t } from './render';
 import { VirUiContext } from './extension-context';
 import { locate, Located } from '../engine/locate';
 import { checkPlatform, defaultProbes } from '../engine/platform-gate';
@@ -10,7 +10,8 @@ import { applyPack, readPendingTx } from '../engine/replace';
 import { restoreOfficial } from '../engine/restore';
 import { checkVersionDrift } from '../engine/relayout';
 import { backupDirFor, deleteBackup, verifyBackup } from '../engine/backup';
-import { loadState, saveState } from '../engine/ledger';
+import { loadState, saveState, expectedState } from '../engine/ledger';
+import { convergeToExpected } from '../engine/converge';
 import { packsDirFor } from '../engine/paths';
 import { ensureDir } from '../engine/fsutil';
 import { seedDemoPack } from './demo-seed';
@@ -31,12 +32,13 @@ function manualInstallPath(): string {
   return cfg().get<string>('vir.editorInstallPath') ?? '';
 }
 
-function activePackId(): string {
-  return cfg().get<string>('vir.activePack') ?? '';
+// The selected pack lives in the ledger: the picker writes it, convergence
+// and activation read it back. No configuration key involved.
+function activePackId(ctx: VirUiContext): string {
+  return loadState(ctx.storageDir).activePackId;
 }
 
-async function setActivePack(ctx: VirUiContext, id: string): Promise<void> {
-  await cfg().update('vir.activePack', id, vscode.ConfigurationTarget.Global);
+function setActivePack(ctx: VirUiContext, id: string): void {
   const state = loadState(ctx.storageDir);
   state.activePackId = id;
   saveState(ctx.storageDir, state);
@@ -123,7 +125,7 @@ async function applyFlow(
     await vscode.window.showErrorMessage(render(r.error));
     return;
   }
-  refreshStatusBar(statusBar);
+  refreshStatusBar(statusBar, ctx);
   const extra = [
     ...r.report.warnings.map(render),
     ...Object.keys(r.report.disabled).map((k) => `${k}: ${render(r.report.disabled[k])}`),
@@ -156,7 +158,7 @@ async function restoreFlow(ctx: VirUiContext, statusBar: vscode.StatusBarItem): 
     await vscode.window.showErrorMessage(render(r.error));
     return;
   }
-  refreshStatusBar(statusBar);
+  refreshStatusBar(statusBar, ctx);
   await vscode.window.showInformationMessage(t('ui.restore.done', r.fileCount));
 }
 
@@ -166,15 +168,15 @@ async function enactPackChoice(
   choice: PackChoice
 ): Promise<void> {
   if ('none' in choice) {
-    await setActivePack(ctx, '');
-    refreshStatusBar(statusBar);
+    setActivePack(ctx, '');
+    refreshStatusBar(statusBar, ctx);
     if (loadState(ctx.storageDir).applied) {
       await restoreFlow(ctx, statusBar);
     }
     return;
   }
-  await setActivePack(ctx, choice.pack.id);
-  refreshStatusBar(statusBar);
+  setActivePack(ctx, choice.pack.id);
+  refreshStatusBar(statusBar, ctx);
   await applyFlow(ctx, statusBar, choice.pack);
 }
 
@@ -183,15 +185,15 @@ async function cmdSelectPack(ctx: VirUiContext, statusBar: vscode.StatusBarItem)
 }
 
 async function cmdApply(ctx: VirUiContext, statusBar: vscode.StatusBarItem): Promise<void> {
-  if (cfg().get<boolean>('vir.enabled', true) === false) {
-    const openSettings = t('ui.disabled.openSettings');
-    const pick = await vscode.window.showInformationMessage(t('ui.disabled'), openSettings);
-    if (pick === openSettings) {
-      await vscode.commands.executeCommand('workbench.action.openSettings', 'vir.enabled');
+  if (!loadState(ctx.storageDir).enabled) {
+    const turnOn = t('ui.disabled.turnOn');
+    const pick = await vscode.window.showInformationMessage(t('ui.disabled'), turnOn);
+    if (pick === turnOn) {
+      await vscode.commands.executeCommand('vir.toggleSwitch');
     }
     return;
   }
-  const packId = activePackId();
+  const packId = activePackId(ctx);
   const pack = packId === '' ? undefined : findPackById(packsDirFor(ctx.storageDir), packId);
   if (!pack) {
     await pickPackChoice(ctx, statusBar);
@@ -202,6 +204,28 @@ async function cmdApply(ctx: VirUiContext, statusBar: vscode.StatusBarItem): Pro
 
 async function cmdRestoreSounds(ctx: VirUiContext, statusBar: vscode.StatusBarItem): Promise<void> {
   await restoreFlow(ctx, statusBar);
+}
+
+// The master switch command: flip the ledger flag and converge the install
+// site right away — off restores the official files, on lays the selected
+// pack back. Other windows pick the change up on their next activation.
+async function cmdToggleSwitch(ctx: VirUiContext): Promise<void> {
+  const located = await locateOrShow();
+  if (!located) {
+    return;
+  }
+  const state = loadState(ctx.storageDir);
+  state.enabled = !state.enabled;
+  saveState(ctx.storageDir, state);
+  const expected = expectedState(state.enabled, state.activePackId);
+  const r = await convergeToExpected(
+    located, ctx.storageDir, ctx.owner, ctx.extensionDir, expected
+  );
+  if (!r.ok) {
+    await vscode.window.showErrorMessage(render(r.error));
+    return;
+  }
+  await vscode.window.showInformationMessage(convergeNote(expected));
 }
 
 export async function runEnableAllSignals(ctx: VirUiContext): Promise<string[]> {
@@ -245,7 +269,7 @@ async function cmdDeleteBackup(ctx: VirUiContext): Promise<void> {
 async function cmdStatus(ctx: VirUiContext): Promise<void> {
   const state = loadState(ctx.storageDir);
   const lines: string[] = [];
-  const packId = activePackId();
+  const packId = activePackId(ctx);
   lines.push(packId ? t('ui.status.pack', packId) : t('ui.status.packNone'));
   if (state.applied) {
     lines.push(
@@ -344,8 +368,8 @@ async function cmdIdentify(ctx: VirUiContext): Promise<void> {
   await openMarkdown(t('ui.worksheet.title'), lines);
 }
 
-export function refreshStatusBar(item: vscode.StatusBarItem): void {
-  const packId = activePackId();
+export function refreshStatusBar(item: vscode.StatusBarItem, ctx: VirUiContext): void {
+  const packId = activePackId(ctx);
   item.text = packId ? `$(bell) ${packId.slice(0, 14)}` : '$(bell)';
 }
 
@@ -354,7 +378,7 @@ export function registerCommands(ctx: VirUiContext): Array<vscode.Disposable> {
   const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   statusBar.command = 'vir.selectPack';
   statusBar.tooltip = t('ui.statusbar.tooltip');
-  refreshStatusBar(statusBar);
+  refreshStatusBar(statusBar, ctx);
   statusBar.show();
   subs.push(statusBar);
 
@@ -372,6 +396,7 @@ export function registerCommands(ctx: VirUiContext): Array<vscode.Disposable> {
   reg('vir.selectPack', () => cmdSelectPack(ctx, statusBar));
   reg('vir.apply', () => cmdApply(ctx, statusBar));
   reg('vir.restoreSounds', () => cmdRestoreSounds(ctx, statusBar));
+  reg('vir.toggleSwitch', () => cmdToggleSwitch(ctx));
   reg('vir.openSignalSettings', () => cmdOpenSignalSettings());
   reg('vir.enableAllSignals', () => cmdEnableAllSignals(ctx));
   reg('vir.restoreToggles', () => cmdRestoreToggles(ctx));

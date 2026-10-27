@@ -1,5 +1,4 @@
 {
-  "vir.activePack.description": "Active voice pack id. Written by the pack selection command.",
   "vir.cmd.apply.title": "VIR: Apply Voice Pack",
   "vir.cmd.deleteBackup.title": "VIR: Delete Backup",
   "vir.cmd.identify.title": "VIR: Identify Sounds",
@@ -8,11 +7,11 @@
   "vir.cmd.rescan.title": "VIR: Rescan Voice Packs",
   "vir.cmd.restoreSounds.title": "VIR: Restore Original Sounds",
   "vir.cmd.restoreToggles.title": "VIR: Restore Signal Toggles",
+  "vir.cmd.toggleSwitch.title": "VIR: Toggle Sound Replacement",
   "vir.cmd.selectPack.title": "VIR: Select Voice Pack",
   "vir.cmd.status.title": "VIR: Status",
   "vir.config.title": "VIR Signals",
   "vir.editorInstallPath.description": "Editor install location for manual override when automatic detection cannot resolve it, for example a portable copy.",
-  "vir.enabled.description": "Master switch. Off means the extension stops intervening and leaves replaced files as they are.",
   "vir.ext.description": "Swap the editor built-in sound files with voice pack audio, with a full backup and one command restore.",
   "vir.cmd.enableAllSignals.title": "VIR: Enable All Signals",
   "vir.packRegistryRepo.description": "The owner/name of the pack registry repository the pack picker pulls its index from.",

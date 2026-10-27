@@ -10,7 +10,9 @@
 
 ## Uninstalling
 
-Uninstalling the extension puts the official sound files back automatically. The restore runs when VS Code next starts after the uninstall (the editor defers the uninstall work, including this restore, to the next launch), so until that restart the current sounds stay. The restore uses the snapshot inside the extension folder first and falls back to the backup in the extension storage; if both are gone it leaves the files untouched rather than guessing.
+Before using the editor's own Disable command on this extension, run **VIR: Toggle Sound Replacement** to restore the official files first: a disabled extension cannot restore anything, only the uninstall hook remains.
+
+Uninstalling the extension puts the official sound files back automatically. The restore runs when VS Code next starts after the uninstall (the editor defers the uninstall work, including this restore, to the next launch), so until that restart the current sounds stay. The files restore uses the snapshot inside the extension folder first and falls back to the backup in the extension storage; if both are gone it leaves the files untouched rather than guessing.
 
 ## Voice packs
 
@@ -34,6 +36,7 @@ Replacing files does not turn signals on. The editor plays a signal only when it
 | VIR: Rescan Voice Packs | Rescan the pack folder and report broken packs. |
 | VIR: Select Voice Pack | Pick the active pack and apply it right away; picking none restores the official sounds. Also reachable from the bell in the status bar. |
 | VIR: Apply Voice Pack | Back up if needed, recompute every slot, replace the files, verify. Asks for a pack first when none is active. |
+| VIR: Toggle Sound Replacement | The master switch. Off restores the official sounds right away, on lays the selected pack back; editor updates respect it, so a fresh version stays native while the switch is off. |
 | VIR: Restore Original Sounds | Lay the official files back and verify every hash. |
 | VIR: Open Signal Settings | Jump to the signal section of the settings page. |
 | VIR: Enable All Signals | Switch on all signal settings of the editor. |
@@ -44,8 +47,6 @@ Replacing files does not turn signals on. The editor plays a signal only when it
 
 ## Settings
 
-- `vir.enabled`: master switch. Off means the extension stops intervening and leaves replaced files as they are.
-- `vir.activePack`: the active pack id, written by the selection command.
 - `vir.editorInstallPath`: manual override of the editor install location, for installs automatic detection cannot resolve.
 - `vir.packRegistryRepo`: the GitHub repository used as the pack index, in `owner/repo` form.
 - `vir.packMirrorTemplate`: optional URL prefix prepended to direct GitHub URLs as an extra mirror hop, for networks where GitHub is unreachable.

@@ -20,6 +20,7 @@ export interface AppliedState {
 
 export interface VirState {
   schemaVersion: 1;
+  enabled: boolean;
   stageOneDone: boolean;
   stageOneOwner: string;
   stageTwoDone: boolean;
@@ -32,9 +33,22 @@ export function statePath(storageDir: string): string {
   return path.join(storageDir, STATE_NAME);
 }
 
+// What should be on disk, the single truth the switch convergence serves:
+// a disabled switch or no selected pack means the official files; a selected
+// pack rules only while the switch is on. Pure so it stays offline testable.
+export type ExpectedState = { kind: 'native' } | { kind: 'pack'; packId: string };
+
+export function expectedState(enabled: boolean, activePackId: string): ExpectedState {
+  if (!enabled || activePackId === '') {
+    return { kind: 'native' };
+  }
+  return { kind: 'pack', packId: activePackId };
+}
+
 export function freshState(): VirState {
   return {
     schemaVersion: 1,
+    enabled: true,
     stageOneDone: false,
     stageOneOwner: '',
     stageTwoDone: false,
@@ -57,6 +71,7 @@ export function loadState(storageDir: string): VirState {
   // fields are the whole state.
   return {
     schemaVersion: 1,
+    enabled: raw.enabled === false ? false : true,
     stageOneDone: raw.stageOneDone === true,
     stageOneOwner: typeof raw.stageOneOwner === 'string' ? raw.stageOneOwner : '',
     stageTwoDone: raw.stageTwoDone === true,
