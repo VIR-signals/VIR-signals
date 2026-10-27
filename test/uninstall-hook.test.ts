@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import * as path from 'node:path';
 import { locate } from '../src/engine/locate';
 import { applyPack } from '../src/engine/replace';
-import { restoreFromSnapshot } from '../src/engine/uninstall-restore';
+import { restoreFromSnapshot, restoreFromBackupRoot } from '../src/engine/uninstall-restore';
 import { snapshotState } from '../src/engine/backup';
 import { readMarker } from '../src/engine/backup';
 import { OFFICIAL_FILES } from '../src/engine/slot-table';
@@ -170,6 +170,52 @@ test('site completely gone exits 1', () => {
     fs.rmSync(s.tree.installRoot, { recursive: true, force: true });
     const out = restoreFromSnapshot(s.extensionDir);
     assert.equal(out.code, 1);
+  } finally {
+    fs.rmSync(s.root, { recursive: true, force: true });
+  }
+});
+
+test('snapshot gone restores from the storage backup instead', () => {
+  const s = setup();
+  try {
+    s.apply({ error: 'sounds/error.wav', save: 'sounds/save.wav' }, 'pack-a');
+    fs.rmSync(path.join(s.extensionDir, 'out', 'restore'), { recursive: true, force: true });
+    assert.deepEqual(restoreFromSnapshot(s.extensionDir), { code: 1, why: 'snapshot.missing' });
+    const out = restoreFromBackupRoot(s.storage);
+    assert.deepEqual(out, { code: 0 });
+    for (const name of OFFICIAL_FILES) {
+      assert.equal(sha256File(path.join(s.tree.mediaDir, name)), officialHash(name), name);
+    }
+    assert.equal(readMarker(s.tree.mediaDir), undefined);
+  } finally {
+    fs.rmSync(s.root, { recursive: true, force: true });
+  }
+});
+
+test('backup root missing exits 1 untouched', () => {
+  const s = setup();
+  try {
+    s.apply({ error: 'sounds/error.wav' }, 'pack-a');
+    assert.deepEqual(restoreFromBackupRoot(path.join(s.root, 'nowhere')), {
+      code: 1,
+      why: 'backup.missing',
+    });
+    assert.notEqual(readMarker(s.tree.mediaDir), undefined);
+  } finally {
+    fs.rmSync(s.root, { recursive: true, force: true });
+  }
+});
+
+test('backup newest fingerprint wins when several exist', () => {
+  const s = setup();
+  try {
+    s.apply({ error: 'sounds/error.wav' }, 'pack-a');
+    const backupRoot = path.join(s.storage, 'backup');
+    const only = fs.readdirSync(backupRoot)[0];
+    fs.renameSync(path.join(backupRoot, only), path.join(backupRoot, 'zz-older-copy'));
+    const out = restoreFromBackupRoot(s.storage);
+    assert.deepEqual(out, { code: 0 });
+    assert.equal(sha256File(path.join(s.tree.mediaDir, 'error.mp3')), officialHash('error.mp3'));
   } finally {
     fs.rmSync(s.root, { recursive: true, force: true });
   }

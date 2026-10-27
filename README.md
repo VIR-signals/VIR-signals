@@ -8,13 +8,17 @@
 - After a replacement the editor must be fully restarted before every signal picks up the new audio. The completion notice says so.
 - When the editor updates itself, the fresh official files are backed up again and the active pack is laid over the new files automatically.
 
+## Uninstalling
+
+Uninstalling the extension puts the official sound files back automatically. The restore runs when VS Code next starts after the uninstall (the editor defers the uninstall work, including this restore, to the next launch), so until that restart the current sounds stay. The restore uses the snapshot inside the extension folder first and falls back to the backup in the extension storage; if both are gone it leaves the files untouched rather than guessing.
+
 ## Voice packs
 
 A pack is a folder with a `manifest.json` and audio files (WAV or MP3). The `slots` object maps slot names to audio files inside the pack. A pack does not have to cover all slots: untouched slots keep the official sound. Use **VIR: Open Voice Packs Folder** to create and open the pack folder, drop packs in, then **VIR: Rescan Voice Packs** to pick them up.
 
 ## Signal switches
 
-Replacing files does not turn signals on. The editor plays a signal only when its accessibility signal setting is on. On first run the extension offers two buttons: switch every signal setting on, or open the signal settings page. **VIR: Enable All Signals** switches all signal settings on at any time — a pure editor settings operation, the active pack is irrelevant — and **VIR: Restore Signal Toggles** puts those settings back the way they were. After every successful apply the result notification also offers the two switch modes: enable all (untouched events keep the official sounds) or match the pack (covered settings on, everything else off).
+Replacing files does not turn signals on. The editor plays a signal only when its accessibility signal setting is on. The first run notice points at picking a pack, because signal switches only matter once a pack is applied. After every successful apply the result notification offers the two switch modes: **Enable All** (all editor signal settings on; untouched events keep the official sounds) or **Match the Pack** (covered settings on, everything else off). **VIR: Enable All Signals** does the enable-all at any time — a pure editor settings operation, the active pack is irrelevant — and **VIR: Restore Signal Toggles** puts those settings back the way they were.
 
 ## Commands
 
