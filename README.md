@@ -12,7 +12,7 @@
 
 Before using the editor's own Disable command on this extension, run **VIR: Toggle Sound Replacement** to restore the official files first: a disabled extension cannot restore anything, only the uninstall hook remains.
 
-Uninstalling the extension puts the official sound files back automatically. The restore runs when VS Code next starts after the uninstall (the editor defers the uninstall work, including this restore, to the next launch), so until that restart the current sounds stay. The files restore uses the snapshot inside the extension folder first and falls back to the backup in the extension storage; if both are gone it leaves the files untouched rather than guessing.
+Uninstalling the extension puts the official sound files back automatically and returns every signal setting it switched to its previous value. The restore runs when VS Code next starts after the uninstall (the editor defers the uninstall work, including this restore, to the next launch), so until that restart the current sounds stay. The files restore uses the snapshot inside the extension folder first and falls back to the backup in the extension storage; if both are gone it leaves the files untouched rather than guessing.
 
 ## Voice packs
 

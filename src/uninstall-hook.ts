@@ -9,6 +9,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { restoreFromSnapshot, restoreFromBackupRoot } from './engine/uninstall-restore';
+import { restoreSignalSettings } from './engine/uninstall-settings';
 
 const STORAGE_SEGMENTS = ['Code', 'User', 'globalStorage', 'vir-signals.vir-signals'];
 
@@ -24,15 +25,28 @@ function storageRootFromEnv(): string | undefined {
 function main(): number {
   const outDir = path.dirname(__filename);
   const extensionDir = outDir === '.' ? process.cwd() : outDir;
+  const storageRoot = storageRootFromEnv();
   let outcome = restoreFromSnapshot(extensionDir);
   if (outcome.code !== 0) {
-    const storageRoot = storageRootFromEnv();
     if (storageRoot !== undefined) {
       const viaBackup = restoreFromBackupRoot(storageRoot);
       outcome =
         viaBackup.code === 0 || viaBackup.code === 2
           ? viaBackup
           : { code: outcome.code, why: `${outcome.why}; ${viaBackup.why}` };
+    }
+  }
+  // The signal settings this extension flipped go back to their recorded
+  // originals here, before the platform deletes the storage that holds the
+  // record. Its own chain: a failure never blocks the file restore above,
+  // but it makes the overall outcome uncertain.
+  if (storageRoot !== undefined) {
+    const settings = restoreSignalSettings(storageRoot);
+    if (settings.code === 2) {
+      process.stderr.write(`vir uninstall: ${settings.why}\n`);
+      if (outcome.code === 0) {
+        outcome = settings;
+      }
     }
   }
   if (outcome.code !== 0) {
